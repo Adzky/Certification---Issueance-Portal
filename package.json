@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/ensure-db.mjs",
     "dev": "node node_modules/next/dist/bin/next dev",
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node node_modules/eslint/bin/eslint.js",
     "postinstall": "node node_modules/prisma/build/index.js generate",
     "test": "node node_modules/vitest/vitest.mjs run",
-    "test:e2e": "node node_modules/@playwright/test/cli.js test"
+    "test:e2e": "node node_modules/@playwright/test/cli.js test",
+    "db:reset": "node scripts/reset-db.mjs"
   },
   "dependencies": {
     "@prisma/adapter-libsql": "^7.10.1",

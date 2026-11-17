@@ -1,4 +1,5 @@
 import { prisma } from '@/repositories/prisma';
+import { truncateAll } from '@/repositories/truncate';
 import type { Actor, Role } from '@/domain/types';
 import { SESSION_COOKIE, sealSession } from '@/server/session';
 
@@ -21,23 +22,7 @@ const SCOPES = [
 
 /** Deletes every row, children before parents. */
 export async function resetDb(): Promise<void> {
-  await prisma.$transaction([
-    prisma.controlDocument.deleteMany(),
-    prisma.registrationApplication.deleteMany(),
-    prisma.verificationResult.deleteMany(),
-    prisma.signature.deleteMany(),
-    prisma.certificate.deleteMany(),
-    prisma.document.deleteMany(),
-    prisma.issuanceRequest.deleteMany(),
-    prisma.client.deleteMany(),
-    prisma.roleAssignmentScope.deleteMany(),
-    prisma.roleAssignment.deleteMany(),
-    prisma.user.deleteMany(),
-    prisma.serviceScope.deleteMany(),
-    prisma.auditLog.deleteMany(),
-    prisma.notification.deleteMany(),
-    prisma.numberSequence.deleteMany(),
-  ]);
+  await truncateAll(prisma);
 }
 
 export async function seedMinimal(): Promise<Fixture> {
