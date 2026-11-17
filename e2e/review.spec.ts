@@ -64,6 +64,11 @@ test('approve disabled until checklist complete', async ({ page }) => {
   await expect(approve).toBeEnabled();
   await approve.click();
   await expect(page.getByText('Document verified').first()).toBeVisible();
+  // The Checklist tab is gone now; the panel falls back to Overview instead of going blank.
+  await expect(panel.getByRole('tab', { name: 'Checklist' })).toHaveCount(0);
+  await expect(panel.getByRole('tab', { name: 'Overview' })).toHaveAttribute('data-state', 'active');
+  await expect(panel).toContainText('Document Preview');
+  await expect(panel).toContainText('no longer awaiting verification');
 
   const doc = await (await signatory.get(`/api/documents/${seed.documentId}`)).json();
   expect(doc.status).toBe('READY_FOR_SIGNING');

@@ -19,6 +19,8 @@ export interface ReasonDialogProps {
   /** Destructive styling for the confirm button (reject). */
   destructive?: boolean;
   pending?: boolean;
+  /** Text the field starts with each time the dialog opens. */
+  initialText?: string;
   /** Called with the trimmed reason once it is long enough. */
   onConfirm: (reason: string) => void;
 }
@@ -33,8 +35,8 @@ export function ReasonDialog(props: ReasonDialogProps) {
   );
 }
 
-function ReasonForm({ onOpenChange, title, description, label = 'Reason', confirmLabel, destructive, pending, onConfirm }: ReasonDialogProps) {
-  const [text, setText] = useState('');
+function ReasonForm({ onOpenChange, title, description, label = 'Reason', confirmLabel, destructive, pending, initialText = '', onConfirm }: ReasonDialogProps) {
+  const [text, setText] = useState(initialText);
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {

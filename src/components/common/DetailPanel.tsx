@@ -1,7 +1,7 @@
 'use client';
 
 import { FileText, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +30,14 @@ export interface DetailPanelProps {
 }
 
 export function DetailPanel({ title, badge, icon: Icon = FileText, tabs, actions, activeTab, onTabChange, className }: DetailPanelProps) {
+  // Own the active tab so a tab that disappears (e.g. after an action) falls back to the first one.
+  const [internal, setInternal] = useState<string | undefined>(undefined);
+  const requested = activeTab ?? internal;
+  const current = tabs.some((t) => t.key === requested) ? requested : tabs[0]?.key;
+  const change = (key: string) => {
+    setInternal(key);
+    onTabChange?.(key);
+  };
   return (
     <section
       aria-label={title}
@@ -45,8 +53,8 @@ export function DetailPanel({ title, badge, icon: Icon = FileText, tabs, actions
         )}
       </header>
       <Tabs
-        {...(activeTab !== undefined ? { value: activeTab } : { defaultValue: tabs[0]?.key })}
-        onValueChange={onTabChange}
+        value={current}
+        onValueChange={change}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <div className="px-4">

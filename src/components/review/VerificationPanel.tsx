@@ -116,6 +116,7 @@ function VerificationBody({ doc }: { doc: DocumentDetail }) {
       <ReasonDialog
         open={returning}
         onOpenChange={setReturning}
+        initialText={comment}
         title="Return for Revision"
         description="Tell the officer what needs to be corrected. The draft goes back to Revision."
         confirmLabel="Return for Revision"
