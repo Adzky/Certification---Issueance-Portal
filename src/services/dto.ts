@@ -251,3 +251,63 @@ export function toCertificateDetail(c: CertificateRow, now: Date = new Date()): 
     createdAt: iso(c.createdAt),
   };
 }
+
+export interface CertificateSummary {
+  id: string;
+  number: string;
+  type: DocumentType;
+  requestNumber: string;
+  clientName: string;
+  scopeCode: string;
+  scopeName: string;
+  schemeCode: string;
+  schemeLabel: string;
+  issueDate: string;
+  validUntil: string;
+  status: CertificateStatus;
+  displayStatus: CertificateDisplayStatus;
+}
+
+/** Public verification view: no internal ids, tokens or request data. */
+export interface PublicCertificate {
+  number: string;
+  type: DocumentType;
+  clientName: string;
+  scopeName: string;
+  schemeLabel: string;
+  issueDate: string;
+  validUntil: string;
+  displayStatus: CertificateDisplayStatus;
+}
+
+export function toCertificateSummary(c: CertificateRow, now: Date = new Date()): CertificateSummary {
+  const status = c.status as CertificateStatus;
+  return {
+    id: c.id,
+    number: c.number,
+    type: c.type as DocumentType,
+    requestNumber: c.request.number,
+    clientName: c.request.client.name,
+    scopeCode: c.request.scopeCode,
+    scopeName: c.request.scope.name,
+    schemeCode: c.request.scope.schemeCode,
+    schemeLabel: c.request.scope.schemeLabel,
+    issueDate: iso(c.issueDate),
+    validUntil: iso(c.validUntil),
+    status,
+    displayStatus: displayCertificateStatus({ status, validUntil: c.validUntil }, now),
+  };
+}
+
+export function toPublicCertificate(c: CertificateRow, now: Date = new Date()): PublicCertificate {
+  return {
+    number: c.number,
+    type: c.type as DocumentType,
+    clientName: c.request.client.name,
+    scopeName: c.request.scope.name,
+    schemeLabel: c.request.scope.schemeLabel,
+    issueDate: iso(c.issueDate),
+    validUntil: iso(c.validUntil),
+    displayStatus: displayCertificateStatus({ status: c.status as CertificateStatus, validUntil: c.validUntil }, now),
+  };
+}
