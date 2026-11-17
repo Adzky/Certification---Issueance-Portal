@@ -149,8 +149,12 @@ function RequestPanelBody({ request }: { request: RequestDetail }) {
           </Link>
         </Button>
       )}
-      {can('document.prepare') && (
-        <Button variant="outline" className="gap-2 text-primary" onClick={() => toast.info('Revision requested (demo only)')}>
+      {can('document.prepare') && request.status !== 'ISSUED' && request.status !== 'READY_FOR_SIGNING' && (
+        <Button
+          variant="outline"
+          className="gap-2 text-primary"
+          onClick={() => toast.info('Requesting revisions from the client is not available in this demo')}
+        >
           <RotateCcw /> Request Revision
         </Button>
       )}

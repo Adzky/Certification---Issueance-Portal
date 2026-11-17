@@ -7,12 +7,12 @@ import { isPathAllowed } from '@/domain/nav';
 import type { SessionData } from './session';
 
 const PUBLIC_PREFIXES = ['/login', '/register', '/verify', '/api', '/_next', '/brand'];
-/** Explicit public asset prefixes (no extension-based rule, so e.g. `/requests/x.json` stays guarded). */
-const ASSET_PREFIXES = ['/favicon', '/icon'];
+/** Exactly the favicon/icon asset files (`/icon`, `/icon.svg`, `/favicon.ico`), not `/icons` or `/iconography`. */
+const ASSET_FILE = /^\/(icon|favicon)(\.[a-z0-9]+)?$/;
 
 /** `/login`, `/register/**`, `/verify/**`, `/api/**` (own auth), Next internals, `/brand/**` and the favicon/icon files. */
 export function isPublicPath(pathname: string): boolean {
-  if (ASSET_PREFIXES.some((p) => pathname.startsWith(p) && !pathname.slice(p.length).includes('/'))) return true;
+  if (ASSET_FILE.test(pathname)) return true;
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

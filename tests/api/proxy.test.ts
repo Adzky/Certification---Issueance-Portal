@@ -13,7 +13,7 @@ describe('proxy (portal auth guard)', () => {
     (p) => expect(isPublicPath(p)).toBe(true),
   );
 
-  it.each(['/', '/dashboard', '/requests', '/drafts/abc/edit', '/loginx', '/registered', '/verifyx', '/requests/x.json', '/logo.png', '/drafts/a.pdf'])('%s is a portal path', (p) =>
+  it.each(['/', '/dashboard', '/requests', '/drafts/abc/edit', '/loginx', '/registered', '/verifyx', '/icons', '/iconography', '/icon/x', '/favicons', '/requests/x.json', '/logo.png', '/drafts/a.pdf'])('%s is a portal path', (p) =>
     expect(isPublicPath(p)).toBe(false),
   );
 
