@@ -179,6 +179,9 @@ export async function submitRegistration(
     return { applicationId, userId };
   } catch (e) {
     await deleteApplicationFiles(applicationId).catch(() => undefined);
+    if ((e as { code?: string })?.code === 'P2002') {
+      throw new DomainError('VALIDATION', 'This user already holds, or has applied for, this role');
+    }
     throw e;
   }
 }
@@ -346,7 +349,10 @@ export async function getRegistrationStatus(applicationId: string): Promise<Regi
     status: app.status as RegistrationStatus,
     assignmentStatus: (assignment?.status as AuthorisationStatus | undefined) ?? 'PENDING',
     role: app.role as Role,
-    scopes: assignment?.scopes.map((s) => s.scopeCode).sort() ?? parseArray(app.requestedScopes),
+    scopes:
+      app.status === 'APPROVED' && assignment?.scopes.length
+        ? assignment.scopes.map((s) => s.scopeCode).sort()
+        : parseArray(app.requestedScopes),
     ...(assignment?.authorisedFrom ? { authorisedFrom: assignment.authorisedFrom.toISOString() } : {}),
     ...(assignment?.authorisedUntil ? { authorisedUntil: assignment.authorisedUntil.toISOString() } : {}),
     ...(authoriser ? { authorisedBy: authoriser.name } : {}),

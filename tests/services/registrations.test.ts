@@ -115,6 +115,7 @@ describe('registrations', () => {
     expect(audit.entityType).toBe('REGISTRATION');
     const status = await getRegistrationStatus(applicationId);
     expect(status).toMatchObject({ status: 'PENDING', assignmentStatus: 'PENDING', role: 'ISSUANCE_OFFICER' });
+    expect([...status.scopes].sort()).toEqual(['ISMS', 'QMS']);
   });
 
   it('approval activates assignment and user appears in login options', async () => {
