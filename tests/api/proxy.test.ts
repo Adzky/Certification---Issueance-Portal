@@ -36,3 +36,18 @@ describe('proxy (portal auth guard)', () => {
     expect(res.headers.get('x-middleware-next')).toBe('1');
   });
 });
+
+describe('proxy (per-role guard)', () => {
+  it('redirects a path outside the role nav to /dashboard', async () => {
+    const cookie = await sessionCookie('u1', 'DOCUMENT_VERIFIER');
+    const res = await proxy(req('/requests', cookie));
+    expect(new URL(res.headers.get('location')!).pathname).toBe('/dashboard');
+  });
+
+  it('lets a role reach its own nav pages and sub-pages', async () => {
+    const cookie = await sessionCookie('u1', 'ISSUANCE_OFFICER');
+    for (const p of ['/requests', '/drafts/abc/edit', '/templates']) {
+      expect((await proxy(req(p, cookie))).headers.get('location')).toBeNull();
+    }
+  });
+});
