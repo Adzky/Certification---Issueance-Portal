@@ -30,7 +30,7 @@ export const documentListQuerySchema = listQuerySchema.extend({
   queue: z.enum(['verification', 'signing', 'returned', 'verifiedByMe', 'signedByMe']).optional(),
 });
 export const certificateListQuerySchema = listQuerySchema.extend({ scheme: optionalText });
-export const auditListQuerySchema = listQuerySchema.extend({ entityType: optionalText, actorId: optionalText });
+export const auditListQuerySchema = listQuerySchema.extend({ entityType: optionalText, entityId: optionalText, actorId: optionalText });
 export const registrationListQuerySchema = z.object({ status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional() });
 
 export const loginBody = z.object({ userId: z.string().min(1, 'User is required'), role: roleEnum });

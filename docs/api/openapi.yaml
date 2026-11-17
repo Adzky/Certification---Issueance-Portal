@@ -592,6 +592,7 @@ paths:
         - { $ref: '#/components/parameters/Sort' }
         - { $ref: '#/components/parameters/Dir' }
         - { name: entityType, in: query, schema: { type: string, enum: [REQUEST, DOCUMENT, CERTIFICATE, REGISTRATION, USER] } }
+        - { name: entityId, in: query, schema: { type: string } }
         - { name: actorId, in: query, schema: { type: string } }
       responses:
         '200':

@@ -12,7 +12,7 @@ const SORTABLE = ['at', 'action', 'entityType', 'entityLabel'] as const;
  */
 export async function listAudit(
   actor: Actor,
-  q: ListQuery & { entityType?: string; actorId?: string } = {},
+  q: ListQuery & { entityType?: string; entityId?: string; actorId?: string } = {},
 ): Promise<Page<AuditEntry>> {
   const and: Prisma.AuditLogWhereInput[] = [];
   if (!canViewAll(actor)) {
@@ -24,6 +24,7 @@ export async function listAudit(
     and.push({ OR: [{ actorId: actor.userId }, { entityId: { in: touched.map((t) => t.entityId) } }] });
   }
   if (q.entityType) and.push({ entityType: q.entityType });
+  if (q.entityId) and.push({ entityId: q.entityId });
   if (q.actorId) and.push({ actorId: q.actorId });
   if (q.q?.trim()) {
     const term = q.q.trim();

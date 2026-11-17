@@ -154,3 +154,19 @@ describe('certificates', () => {
     expect(ref.checklist.length).toBeGreaterThan(0);
   });
 });
+
+describe('audit entityId filter', () => {
+  it('lists only the entries of one entity', async () => {
+    await resetDb();
+    const f = await seedMinimal();
+    const a = await issueOne(f);
+    const b = await issueOne(f);
+    await suspendCertificate(f.manager, a.certificate.id, { reason: 'Client audit overdue' });
+    const { listAudit } = await import('@/services/auditQueries');
+    const rows = await listAudit(f.manager, { entityType: 'CERTIFICATE', entityId: a.certificate.id });
+    expect(rows.items.map((x) => x.action).sort()).toEqual(['certificate.issue', 'certificate.suspend']);
+    expect(rows.items.every((x) => x.entityId === a.certificate.id)).toBe(true);
+    const other = await listAudit(f.manager, { entityType: 'CERTIFICATE', entityId: b.certificate.id });
+    expect(other.total).toBe(1);
+  });
+});

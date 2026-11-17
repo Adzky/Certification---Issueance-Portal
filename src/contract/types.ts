@@ -42,7 +42,7 @@ export interface ListQuery {
 export type DocumentQueue = 'verification' | 'signing' | 'returned' | 'verifiedByMe' | 'signedByMe';
 export type DocumentListQuery = ListQuery & { queue?: DocumentQueue };
 export type CertificateListQuery = ListQuery & { scheme?: string };
-export type AuditListQuery = ListQuery & { entityType?: string; actorId?: string };
+export type AuditListQuery = ListQuery & { entityType?: string; entityId?: string; actorId?: string };
 export type RegistrationListQuery = { status?: RegistrationStatus };
 
 // ---------- Requests & documents ----------
