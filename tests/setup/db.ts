@@ -1,5 +1,6 @@
 import { prisma } from '@/repositories/prisma';
-import type { Actor } from '@/domain/types';
+import type { Actor, Role } from '@/domain/types';
+import { SESSION_COOKIE, sealSession } from '@/server/session';
 
 export interface Fixture {
   officer: Actor;
@@ -61,4 +62,9 @@ export async function seedMinimal(): Promise<Fixture> {
   const admin = await make('admin', 'SYSTEM_ADMIN', all);
   const client = await prisma.client.create({ data: { name: 'PT Surya Kencana Industri' } });
   return { officer, verifier, signatory, manager, admin, clientId: client.id };
+}
+
+/** A `Cookie` header value carrying a sealed `jmu_session` for (userId, role). */
+export async function sessionCookie(userId: string, role: Role): Promise<string> {
+  return `${SESSION_COOKIE}=${await sealSession({ userId, role })}`;
 }

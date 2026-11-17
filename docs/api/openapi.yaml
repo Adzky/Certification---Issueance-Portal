@@ -1,0 +1,1230 @@
+openapi: 3.1.0
+info:
+  title: JMU Certification & Issuance Portal API
+  version: 1.0.0
+  description: |
+    REST contract between the portal UI and its backend. The UI talks to the backend
+    only through these routes, so any implementation (Next.js route handlers today,
+    Python/Go tomorrow) that honours this document can replace it.
+
+    Conventions
+    - All bodies are JSON (`application/json`) except `POST /api/registrations`
+      (multipart). All dates are ISO-8601 strings.
+    - Authentication is a cookie session (`jmu_session`, httpOnly, SameSite=Lax),
+      created by `POST /api/session`. Browser clients send it with
+      `credentials: 'include'`. Operations marked `security: []` are public.
+    - Every error uses one shape: `{ "error": { "code": ErrorCode, "message": string } }`
+      with FORBIDDEN 403, NOT_FOUND 404, VALIDATION 400, INVALID_TRANSITION 409,
+      CONFLICT 409, UNAUTHENTICATED 401, INTERNAL 500.
+    - Records outside the caller's service scopes are reported as 404 (not 403) so
+      their existence is not disclosed.
+    - Every state change is permission-checked, workflow-checked and audited in one
+      transaction.
+servers:
+  - url: /
+security:
+  - session: []
+
+tags:
+  - name: session
+  - name: requests
+  - name: documents
+  - name: certificates
+  - name: registrations
+  - name: admin
+  - name: misc
+
+paths:
+  /api/login-options:
+    get:
+      tags: [session]
+      operationId: listLoginOptions
+      summary: Users per role available on the demo login screen (ACTIVE/RESTRICTED assignments)
+      security: []
+      responses:
+        '200':
+          description: Login options
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/LoginOption' } }
+        '500': { $ref: '#/components/responses/Internal' }
+
+  /api/session:
+    get:
+      tags: [session]
+      operationId: getSession
+      summary: The current session. `permissions` is empty unless the assignment is ACTIVE or RESTRICTED.
+      responses:
+        '200':
+          description: Signed in
+          content: { application/json: { schema: { $ref: '#/components/schemas/SessionInfo' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [session]
+      operationId: login
+      summary: Sign in as (userId, role). 403 unless that role assignment is ACTIVE or RESTRICTED.
+      security: []
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/LoginBody' } } }
+      responses:
+        '200':
+          description: Signed in; sets the `jmu_session` cookie
+          headers:
+            Set-Cookie: { schema: { type: string }, description: 'jmu_session=...; HttpOnly; SameSite=Lax; Path=/' }
+          content: { application/json: { schema: { $ref: '#/components/schemas/SessionInfo' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [session]
+      operationId: logout
+      summary: Sign out (clears the cookie). Always succeeds.
+      security: []
+      responses:
+        '200':
+          description: Signed out
+          content:
+            application/json:
+              schema: { type: object, required: [ok], properties: { ok: { type: boolean, const: true } } }
+
+  /api/reference:
+    get:
+      tags: [misc]
+      operationId: getReference
+      summary: Clients, service scopes and the verification checklist
+      responses:
+        '200':
+          description: Reference data
+          content: { application/json: { schema: { $ref: '#/components/schemas/ReferenceData' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/permissions:
+    get:
+      tags: [misc]
+      operationId: getPermissions
+      summary: The role -> action matrix
+      responses:
+        '200':
+          description: Matrix
+          content: { application/json: { schema: { $ref: '#/components/schemas/PermissionsMatrix' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/requests:
+    get:
+      tags: [requests]
+      operationId: listRequests
+      summary: Issuance requests visible to the caller (scope-filtered unless records.viewAll)
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/Status' }
+        - { $ref: '#/components/parameters/ScopeCode' }
+        - { $ref: '#/components/parameters/Priority' }
+        - { $ref: '#/components/parameters/Type' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Dir' }
+      responses:
+        '200':
+          description: A page of requests plus per-status counts
+          content: { application/json: { schema: { $ref: '#/components/schemas/RequestPage' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [requests]
+      operationId: createRequest
+      summary: Create an issuance request (request.create in the scope)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateRequestBody' } } }
+      responses:
+        '201':
+          description: Created
+          content: { application/json: { schema: { $ref: '#/components/schemas/RequestDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/requests/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [requests]
+      operationId: getRequest
+      summary: Request with documents, certificate and audit timeline
+      responses:
+        '200':
+          description: Request
+          content: { application/json: { schema: { $ref: '#/components/schemas/RequestDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/requests/{id}/documents:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [requests]
+      operationId: prepareDocument
+      summary: Start the draft document for a request (workflow PREPARE)
+      responses:
+        '201':
+          description: Draft created
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/documents:
+    get:
+      tags: [documents]
+      operationId: listDocuments
+      summary: Documents visible to the caller, optionally as a work queue
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/Status' }
+        - { $ref: '#/components/parameters/ScopeCode' }
+        - { $ref: '#/components/parameters/Priority' }
+        - { $ref: '#/components/parameters/Type' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Dir' }
+        - name: queue
+          in: query
+          schema: { type: string, enum: [verification, signing, returned, verifiedByMe, signedByMe] }
+      responses:
+        '200':
+          description: A page of documents plus per-status counts
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentPage' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/documents/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [documents]
+      operationId: getDocument
+      responses:
+        '200':
+          description: Document
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [documents]
+      operationId: updateDocumentFields
+      summary: Save template fields of a draft (IN_PROGRESS or REVISION)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateDocumentBody' } } }
+      responses:
+        '200':
+          description: Updated
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/documents/{id}/submit:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [documents]
+      operationId: submitDocument
+      summary: Submit a draft for verification (all required fields must be filled)
+      responses:
+        '200':
+          description: Document after the transition
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/documents/{id}/verify:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [documents]
+      operationId: verifyDocument
+      summary: Approve verification (every checklist item true) -> READY_FOR_SIGNING
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/VerifyBody' } } }
+      responses:
+        '200':
+          description: Document after the transition
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/documents/{id}/return:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [documents]
+      operationId: returnDocument
+      summary: Return for revision (comment required)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReturnBody' } } }
+      responses:
+        '200':
+          description: Document after the transition
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/documents/{id}/sign:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [documents]
+      operationId: signDocument
+      summary: Sign and issue the certificate
+      responses:
+        '200':
+          description: Signed; certificate issued
+          content: { application/json: { schema: { $ref: '#/components/schemas/SignResult' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/documents/{id}/reject:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [documents]
+      operationId: rejectDocument
+      summary: Signatory rejects (reason required)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReasonBody' } } }
+      responses:
+        '200':
+          description: Document after the transition
+          content: { application/json: { schema: { $ref: '#/components/schemas/DocumentDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/certificates:
+    get:
+      tags: [certificates]
+      operationId: listCertificates
+      summary: Certificates visible to the caller. `status` filters on displayStatus.
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/Status' }
+        - { $ref: '#/components/parameters/ScopeCode' }
+        - { $ref: '#/components/parameters/Priority' }
+        - { $ref: '#/components/parameters/Type' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Dir' }
+        - { name: scheme, in: query, schema: { type: string }, description: Scheme code }
+      responses:
+        '200':
+          description: A page of certificates plus per-display-status counts
+          content: { application/json: { schema: { $ref: '#/components/schemas/CertificatePage' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/certificates/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [certificates]
+      operationId: getCertificate
+      responses:
+        '200':
+          description: Certificate
+          content: { application/json: { schema: { $ref: '#/components/schemas/CertificateDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/certificates/{id}/suspend:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [certificates]
+      operationId: suspendCertificate
+      summary: ACTIVE -> SUSPENDED (reason required)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReasonBody' } } }
+      responses:
+        '200':
+          description: Certificate after the change
+          content: { application/json: { schema: { $ref: '#/components/schemas/CertificateDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/certificates/{id}/reinstate:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [certificates]
+      operationId: reinstateCertificate
+      summary: SUSPENDED -> ACTIVE
+      responses:
+        '200':
+          description: Certificate after the change
+          content: { application/json: { schema: { $ref: '#/components/schemas/CertificateDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/certificates/{id}/revoke:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [certificates]
+      operationId: revokeCertificate
+      summary: ACTIVE/SUSPENDED -> REVOKED (reason required)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReasonBody' } } }
+      responses:
+        '200':
+          description: Certificate after the change
+          content: { application/json: { schema: { $ref: '#/components/schemas/CertificateDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/certificates/{id}/pdf:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [certificates]
+      operationId: getCertificatePdf
+      summary: The issued certificate / inspection report as a PDF (with QR verification link)
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/public/certificates/{number}:
+    parameters:
+      - { name: number, in: path, required: true, schema: { type: string }, description: Certificate number }
+    get:
+      tags: [certificates]
+      operationId: getPublicCertificate
+      summary: Public verification lookup (QR target). No internal ids or tokens.
+      security: []
+      responses:
+        '200':
+          description: Certificate
+          content: { application/json: { schema: { $ref: '#/components/schemas/PublicCertificate' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/registrations:
+    get:
+      tags: [registrations]
+      operationId: listRegistrations
+      summary: Registration applications (registration.decide)
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/RegistrationStatus' } }
+      responses:
+        '200':
+          description: Applications, newest first
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/RegistrationSummary' } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [registrations]
+      operationId: submitRegistration
+      summary: Public onboarding submit with the seven control-document PDFs (max 10 MB each)
+      security: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [payload, file1, file2, file3, file4, file5, file6, file7]
+              properties:
+                payload:
+                  type: string
+                  description: JSON-encoded RegistrationPayload
+                  contentMediaType: application/json
+                file1: { type: string, format: binary, description: Job Description & Responsibility Matrix }
+                file2: { type: string, format: binary, description: Competency Requirements & Assessment Record }
+                file3: { type: string, format: binary, description: Training, Experience & Performance Record }
+                file4: { type: string, format: binary, description: Formal Authorisation Letter (Draft/Previous) }
+                file5: { type: string, format: binary, description: Authorisation Scope & Permission Matrix }
+                file6: { type: string, format: binary, description: Impartiality, Confidentiality & Conflict of Interest Declaration }
+                file7: { type: string, format: binary, description: Periodic Competency & Authorisation Review }
+            encoding:
+              payload: { contentType: application/json }
+      responses:
+        '201':
+          description: Submitted (status PENDING)
+          content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationSubmitted' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/registrations/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [registrations]
+      operationId: getRegistration
+      responses:
+        '200':
+          description: Application
+          content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationDetail' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/registrations/{id}/decision:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    post:
+      tags: [registrations]
+      operationId: decideRegistration
+      summary: Approve (assignment ACTIVE, default 2 years) or reject (comment required)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DecisionBody' } } }
+      responses:
+        '200':
+          description: Decided
+          content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationDetail' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/public/registrations/{id}/status:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    get:
+      tags: [registrations]
+      operationId: getRegistrationStatus
+      summary: Public status of an application (onboarding step 4)
+      security: []
+      responses:
+        '200':
+          description: Status
+          content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationStatusInfo' } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/users:
+    get:
+      tags: [admin]
+      operationId: listUsers
+      summary: Users with their role assignments (user.manage)
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/UserSummary' } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/role-assignments/{id}:
+    parameters: [{ $ref: '#/components/parameters/Id' }]
+    patch:
+      tags: [admin]
+      operationId: updateAssignment
+      summary: Change an assignment's status and/or scopes (user.manage)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAssignmentBody' } } }
+      responses:
+        '200':
+          description: The user, updated
+          content: { application/json: { schema: { $ref: '#/components/schemas/UserSummary' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/dashboard:
+    get:
+      tags: [misc]
+      operationId: getDashboard
+      summary: Role-specific dashboard for the session role
+      responses:
+        '200':
+          description: Dashboard
+          content: { application/json: { schema: { $ref: '#/components/schemas/DashboardData' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/audit:
+    get:
+      tags: [misc]
+      operationId: listAudit
+      summary: Audit trail (everything with records.viewAll, else entries the caller wrote or touched)
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/From' }
+        - { $ref: '#/components/parameters/To' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Dir' }
+        - { name: entityType, in: query, schema: { type: string, enum: [REQUEST, DOCUMENT, CERTIFICATE, REGISTRATION, USER] } }
+        - { name: actorId, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: A page of audit entries
+          content: { application/json: { schema: { $ref: '#/components/schemas/AuditPage' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/notifications:
+    get:
+      tags: [misc]
+      operationId: listNotifications
+      summary: Latest 50 notifications for the user or their current role
+      responses:
+        '200':
+          description: Notifications
+          content: { application/json: { schema: { $ref: '#/components/schemas/NotificationList' } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/notifications/read:
+    post:
+      tags: [misc]
+      operationId: markNotificationsRead
+      summary: Mark the given (or, with no ids, all) visible notifications read
+      requestBody:
+        content: { application/json: { schema: { $ref: '#/components/schemas/MarkNotificationsReadBody' } } }
+      responses:
+        '200':
+          description: Notifications after the update
+          content: { application/json: { schema: { $ref: '#/components/schemas/NotificationList' } } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: jmu_session
+
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: string } }
+    Q: { name: q, in: query, schema: { type: string }, description: Free-text search }
+    Status: { name: status, in: query, schema: { type: string }, description: Status filter (resource-specific values) }
+    ScopeCode: { name: scopeCode, in: query, schema: { type: string } }
+    Priority: { name: priority, in: query, schema: { $ref: '#/components/schemas/Priority' } }
+    Type: { name: type, in: query, schema: { $ref: '#/components/schemas/DocumentType' } }
+    From: { name: from, in: query, schema: { type: string, format: date }, description: Inclusive UTC day }
+    To: { name: to, in: query, schema: { type: string, format: date }, description: Inclusive UTC day }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    Sort: { name: sort, in: query, schema: { type: string }, description: Sort key (unknown keys fall back to the default) }
+    Dir: { name: dir, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+
+  responses:
+    Validation:
+      description: VALIDATION — malformed or invalid input
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthenticated:
+      description: UNAUTHENTICATED — no valid session
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: FORBIDDEN — role, authorisation status or scope does not allow this action
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: NOT_FOUND — no such record (or outside the caller's scopes)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: INVALID_TRANSITION (workflow does not allow it in the current state) or CONFLICT (concurrent change; retry)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Internal:
+      description: INTERNAL — unexpected server error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [FORBIDDEN, NOT_FOUND, VALIDATION, INVALID_TRANSITION, CONFLICT, UNAUTHENTICATED, INTERNAL] }
+            message: { type: string }
+
+    # ---- enums ----
+    Role: { type: string, enum: [ISSUANCE_OFFICER, DOCUMENT_VERIFIER, AUTHORISED_SIGNATORY, ISSUANCE_MANAGER, SYSTEM_ADMIN] }
+    RequestStatus: { type: string, enum: [SUBMITTED, IN_PREPARATION, IN_VERIFICATION, REVISION_REQUIRED, READY_FOR_SIGNING, ISSUED] }
+    DocumentStatus: { type: string, enum: [IN_PROGRESS, UNDER_VERIFICATION, REVISION, READY_FOR_SIGNING, SIGNED, REJECTED] }
+    CertificateStatus: { type: string, enum: [ACTIVE, SUSPENDED, REVOKED, IN_RENEWAL] }
+    CertificateDisplayStatus: { type: string, enum: [ACTIVE, SUSPENDED, REVOKED, IN_RENEWAL, EXPIRING, EXPIRED] }
+    AuthorisationStatus: { type: string, enum: [PENDING, ACTIVE, RESTRICTED, SUSPENDED, REVOKED, EXPIRED] }
+    RegistrationStatus: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+    Priority: { type: string, enum: [HIGH, NORMAL, LOW] }
+    DocumentType: { type: string, enum: [CERTIFICATE, INSPECTION_REPORT] }
+    Action:
+      type: string
+      enum:
+        - request.create
+        - document.prepare
+        - document.edit
+        - document.submit
+        - document.verify
+        - document.return
+        - document.sign
+        - document.reject
+        - certificate.suspend
+        - certificate.reinstate
+        - certificate.revoke
+        - registration.decide
+        - user.manage
+        - records.viewAll
+    DateTime: { type: string, format: date-time }
+    StatusStats:
+      type: object
+      description: '`TOTAL` plus a count per status'
+      required: [TOTAL]
+      additionalProperties: { type: integer }
+
+    # ---- session ----
+    LoginBody:
+      type: object
+      required: [userId, role]
+      properties:
+        userId: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+    LoginOption:
+      type: object
+      required: [role, users]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        users:
+          type: array
+          items:
+            type: object
+            required: [userId, name, status]
+            properties:
+              userId: { type: string }
+              name: { type: string }
+              avatarUrl: { type: string }
+              status: { $ref: '#/components/schemas/AuthorisationStatus' }
+    SessionInfo:
+      type: object
+      required: [user, role, roles, assignmentStatus, scopeCodes, permissions]
+      properties:
+        user:
+          type: object
+          required: [id, name, email, avatarUrl, position, unit]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            email: { type: string }
+            avatarUrl: { type: [string, 'null'] }
+            position: { type: [string, 'null'] }
+            unit: { type: [string, 'null'] }
+        role: { $ref: '#/components/schemas/Role' }
+        roles:
+          type: array
+          description: Roles this user may sign in as (ACTIVE or RESTRICTED assignments)
+          items: { $ref: '#/components/schemas/Role' }
+        assignmentStatus: { $ref: '#/components/schemas/AuthorisationStatus' }
+        scopeCodes: { type: array, items: { type: string } }
+        permissions:
+          type: array
+          description: Actions of the role; empty unless the assignment is ACTIVE or RESTRICTED. The UI gates every action button on it.
+          items: { $ref: '#/components/schemas/Action' }
+
+    # ---- reference / permissions ----
+    ServiceScope:
+      type: object
+      required: [code, name, category, schemeLabel, schemeCode, documentType, termMonths]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
+        schemeLabel: { type: string }
+        schemeCode: { type: string }
+        documentType: { $ref: '#/components/schemas/DocumentType' }
+        termMonths: { type: integer }
+    ReferenceData:
+      type: object
+      required: [clients, scopes, checklist]
+      properties:
+        clients:
+          type: array
+          items: { type: object, required: [id, name], properties: { id: { type: string }, name: { type: string } } }
+        scopes: { type: array, items: { $ref: '#/components/schemas/ServiceScope' } }
+        checklist:
+          type: array
+          items: { type: object, required: [key, label], properties: { key: { type: string }, label: { type: string } } }
+    PermissionsMatrix:
+      type: object
+      required: [roles, actions]
+      properties:
+        roles:
+          type: array
+          items:
+            type: object
+            required: [role, label, actions]
+            properties:
+              role: { $ref: '#/components/schemas/Role' }
+              label: { type: string }
+              actions: { type: array, items: { $ref: '#/components/schemas/Action' } }
+        actions: { type: array, items: { $ref: '#/components/schemas/Action' } }
+
+    # ---- requests & documents ----
+    CreateRequestBody:
+      type: object
+      required: [clientId, scopeCode, objectScope, priority]
+      properties:
+        clientId: { type: string }
+        scopeCode: { type: string }
+        objectScope: { type: string, maxLength: 500 }
+        priority: { $ref: '#/components/schemas/Priority' }
+    RequestSummary:
+      type: object
+      required: [id, number, clientId, clientName, scopeCode, scopeName, schemeLabel, documentType, objectScope, priority, status, assigneeId, assigneeName, createdById, dueDate, issuedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        number: { type: string, examples: [REQ-2026-0001] }
+        clientId: { type: string }
+        clientName: { type: string }
+        scopeCode: { type: string }
+        scopeName: { type: string }
+        schemeLabel: { type: string }
+        documentType: { $ref: '#/components/schemas/DocumentType' }
+        objectScope: { type: string }
+        priority: { $ref: '#/components/schemas/Priority' }
+        status: { $ref: '#/components/schemas/RequestStatus' }
+        assigneeId: { type: [string, 'null'] }
+        assigneeName: { type: [string, 'null'] }
+        createdById: { type: string }
+        dueDate: { $ref: '#/components/schemas/DateTime' }
+        issuedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    TimelineEntry:
+      type: object
+      required: [id, action, entityType, entityId, entityLabel, actorId, actorName, actorRole, comment, at]
+      properties:
+        id: { type: string }
+        action: { type: string, examples: [document.submit] }
+        entityType: { type: string, enum: [REQUEST, DOCUMENT, CERTIFICATE, REGISTRATION, USER] }
+        entityId: { type: string }
+        entityLabel: { type: string }
+        actorId: { type: [string, 'null'] }
+        actorName: { type: [string, 'null'] }
+        actorRole:
+          oneOf: [{ $ref: '#/components/schemas/Role' }, { type: 'null' }]
+        comment: { type: [string, 'null'] }
+        at: { $ref: '#/components/schemas/DateTime' }
+    DocumentSummary:
+      type: object
+      required: [id, number, requestId, requestNumber, clientName, scopeCode, scopeName, priority, dueDate, type, version, status, preparedById, preparedByName, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        requestId: { type: string }
+        requestNumber: { type: string }
+        clientName: { type: string }
+        scopeCode: { type: string }
+        scopeName: { type: string }
+        priority: { $ref: '#/components/schemas/Priority' }
+        dueDate: { $ref: '#/components/schemas/DateTime' }
+        type: { $ref: '#/components/schemas/DocumentType' }
+        version: { type: string, examples: [v1.0] }
+        status: { $ref: '#/components/schemas/DocumentStatus' }
+        preparedById: { type: string }
+        preparedByName: { type: string }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        updatedAt: { $ref: '#/components/schemas/DateTime' }
+    RequestDetail:
+      allOf:
+        - { $ref: '#/components/schemas/RequestSummary' }
+        - type: object
+          required: [clientAddress, documents, timeline, certificate]
+          properties:
+            clientAddress: { type: [string, 'null'] }
+            documents: { type: array, items: { $ref: '#/components/schemas/DocumentSummary' } }
+            timeline: { type: array, items: { $ref: '#/components/schemas/TimelineEntry' } }
+            certificate:
+              oneOf:
+                - type: 'null'
+                - type: object
+                  required: [id, number, status]
+                  properties:
+                    id: { type: string }
+                    number: { type: string }
+                    status: { $ref: '#/components/schemas/CertificateStatus' }
+    RequestPage:
+      allOf:
+        - { $ref: '#/components/schemas/PageMeta' }
+        - type: object
+          required: [items, stats]
+          properties:
+            items: { type: array, items: { $ref: '#/components/schemas/RequestSummary' } }
+            stats: { $ref: '#/components/schemas/StatusStats' }
+    PageMeta:
+      type: object
+      required: [total, page, pageSize]
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+    VerificationResult:
+      type: object
+      required: [id, verifierId, verifierName, outcome, checklist, comment, createdAt]
+      properties:
+        id: { type: string }
+        verifierId: { type: string }
+        verifierName: { type: string }
+        outcome: { type: string, enum: [APPROVED, RETURNED] }
+        checklist: { type: object, additionalProperties: { type: boolean } }
+        comment: { type: [string, 'null'] }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+    DocumentDetail:
+      allOf:
+        - { $ref: '#/components/schemas/DocumentSummary' }
+        - type: object
+          required: [fields, verifications, latestVerifierComment, rejectionReason, signature, certificateId, request]
+          properties:
+            fields: { type: object, additionalProperties: { type: string } }
+            verifications: { type: array, items: { $ref: '#/components/schemas/VerificationResult' } }
+            latestVerifierComment: { type: [string, 'null'] }
+            rejectionReason: { type: [string, 'null'] }
+            signature:
+              oneOf:
+                - type: 'null'
+                - type: object
+                  required: [signerId, signerName, signedAt]
+                  properties:
+                    signerId: { type: string }
+                    signerName: { type: string }
+                    signedAt: { $ref: '#/components/schemas/DateTime' }
+            certificateId: { type: [string, 'null'] }
+            request: { $ref: '#/components/schemas/RequestSummary' }
+    DocumentPage:
+      allOf:
+        - { $ref: '#/components/schemas/PageMeta' }
+        - type: object
+          required: [items, stats]
+          properties:
+            items: { type: array, items: { $ref: '#/components/schemas/DocumentSummary' } }
+            stats: { $ref: '#/components/schemas/StatusStats' }
+    UpdateDocumentBody:
+      type: object
+      required: [fields]
+      properties:
+        fields: { type: object, additionalProperties: { type: string, maxLength: 5000 } }
+    VerifyBody:
+      type: object
+      required: [checklist]
+      properties:
+        checklist: { type: object, additionalProperties: { type: boolean }, description: Keys from ReferenceData.checklist }
+        comment: { type: string }
+    ReturnBody:
+      type: object
+      required: [checklist, comment]
+      properties:
+        checklist: { type: object, additionalProperties: { type: boolean } }
+        comment: { type: string, minLength: 1 }
+    ReasonBody:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+    SignResult:
+      type: object
+      required: [document, certificate]
+      properties:
+        document: { $ref: '#/components/schemas/DocumentDetail' }
+        certificate: { $ref: '#/components/schemas/CertificateDetail' }
+
+    # ---- certificates ----
+    CertificateSummary:
+      type: object
+      required: [id, number, type, requestNumber, clientName, scopeCode, scopeName, schemeCode, schemeLabel, issueDate, validUntil, status, displayStatus]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        type: { $ref: '#/components/schemas/DocumentType' }
+        requestNumber: { type: string }
+        clientName: { type: string }
+        scopeCode: { type: string }
+        scopeName: { type: string }
+        schemeCode: { type: string }
+        schemeLabel: { type: string }
+        issueDate: { $ref: '#/components/schemas/DateTime' }
+        validUntil: { $ref: '#/components/schemas/DateTime' }
+        status: { $ref: '#/components/schemas/CertificateStatus' }
+        displayStatus: { $ref: '#/components/schemas/CertificateDisplayStatus' }
+    CertificateDetail:
+      type: object
+      required: [id, number, type, requestId, requestNumber, documentId, documentNumber, clientName, clientAddress, scopeCode, scopeName, schemeLabel, objectScope, issueDate, validUntil, status, displayStatus, statusReason, verificationToken, createdAt]
+      properties:
+        id: { type: string }
+        number: { type: string }
+        type: { $ref: '#/components/schemas/DocumentType' }
+        requestId: { type: string }
+        requestNumber: { type: string }
+        documentId: { type: string }
+        documentNumber: { type: string }
+        clientName: { type: string }
+        clientAddress: { type: [string, 'null'] }
+        scopeCode: { type: string }
+        scopeName: { type: string }
+        schemeLabel: { type: string }
+        objectScope: { type: string }
+        issueDate: { $ref: '#/components/schemas/DateTime' }
+        validUntil: { $ref: '#/components/schemas/DateTime' }
+        status: { $ref: '#/components/schemas/CertificateStatus' }
+        displayStatus: { $ref: '#/components/schemas/CertificateDisplayStatus' }
+        statusReason: { type: [string, 'null'] }
+        verificationToken: { type: string }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+    CertificatePage:
+      allOf:
+        - { $ref: '#/components/schemas/PageMeta' }
+        - type: object
+          required: [items, stats]
+          properties:
+            items: { type: array, items: { $ref: '#/components/schemas/CertificateSummary' } }
+            stats:
+              type: object
+              required: [TOTAL, ACTIVE, EXPIRING, EXPIRED, SUSPENDED, REVOKED, IN_RENEWAL]
+              additionalProperties: { type: integer }
+    PublicCertificate:
+      type: object
+      required: [number, type, clientName, scopeName, schemeLabel, issueDate, validUntil, displayStatus]
+      properties:
+        number: { type: string }
+        type: { $ref: '#/components/schemas/DocumentType' }
+        clientName: { type: string }
+        scopeName: { type: string }
+        schemeLabel: { type: string }
+        issueDate: { $ref: '#/components/schemas/DateTime' }
+        validUntil: { $ref: '#/components/schemas/DateTime' }
+        displayStatus: { $ref: '#/components/schemas/CertificateDisplayStatus' }
+
+    # ---- registrations ----
+    RegistrationPersonal:
+      type: object
+      required: [fullName, employeeId, nationalId, position, unit, email, phone]
+      properties:
+        fullName: { type: string }
+        employeeId: { type: string }
+        nationalId: { type: string }
+        position: { type: string }
+        unit: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+    RegistrationEmployment:
+      type: object
+      required: [education, fieldOfStudy, experienceYears, employmentStatus, startDate]
+      properties:
+        education: { type: string }
+        fieldOfStudy: { type: string }
+        experienceYears: { type: number, minimum: 0, maximum: 80 }
+        employmentStatus: { type: string, enum: [PERMANENT, CONTRACT] }
+        startDate: { type: string, format: date }
+    RegistrationPayload:
+      type: object
+      required: [role, scopes, personal, employment, declarationAccepted]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        scopes: { type: array, minItems: 1, items: { type: string } }
+        personal: { $ref: '#/components/schemas/RegistrationPersonal' }
+        employment: { $ref: '#/components/schemas/RegistrationEmployment' }
+        declarationAccepted: { type: boolean, const: true }
+    RegistrationSubmitted:
+      type: object
+      required: [applicationId, userId]
+      properties:
+        applicationId: { type: string }
+        userId: { type: string }
+    RegistrationSummary:
+      type: object
+      required: [id, userId, applicantName, email, role, requestedScopes, status, createdAt, decidedAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        applicantName: { type: string }
+        email: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        requestedScopes: { type: array, items: { type: string } }
+        status: { $ref: '#/components/schemas/RegistrationStatus' }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+        decidedAt: { type: [string, 'null'], format: date-time }
+    RegistrationDetail:
+      allOf:
+        - { $ref: '#/components/schemas/RegistrationSummary' }
+        - type: object
+          required: [personal, employment, declarationAccepted, documents, decisionComment, decidedById, decidedByName, assignmentStatus, authorisedFrom, authorisedUntil]
+          properties:
+            personal: { $ref: '#/components/schemas/RegistrationPersonal' }
+            employment: { $ref: '#/components/schemas/RegistrationEmployment' }
+            declarationAccepted: { type: boolean }
+            documents:
+              type: array
+              items:
+                type: object
+                required: [slot, name, fileName, sizeBytes]
+                properties:
+                  slot: { type: integer, minimum: 1, maximum: 7 }
+                  name: { type: string }
+                  fileName: { type: string }
+                  sizeBytes: { type: integer }
+            decisionComment: { type: [string, 'null'] }
+            decidedById: { type: [string, 'null'] }
+            decidedByName: { type: [string, 'null'] }
+            assignmentStatus:
+              oneOf: [{ $ref: '#/components/schemas/AuthorisationStatus' }, { type: 'null' }]
+            authorisedFrom: { type: [string, 'null'], format: date-time }
+            authorisedUntil: { type: [string, 'null'], format: date-time }
+    RegistrationStatusInfo:
+      type: object
+      required: [status, assignmentStatus, role, scopes]
+      properties:
+        status: { $ref: '#/components/schemas/RegistrationStatus' }
+        assignmentStatus: { $ref: '#/components/schemas/AuthorisationStatus' }
+        role: { $ref: '#/components/schemas/Role' }
+        scopes: { type: array, items: { type: string } }
+        authorisedFrom: { $ref: '#/components/schemas/DateTime' }
+        authorisedUntil: { $ref: '#/components/schemas/DateTime' }
+        authorisedBy: { type: string }
+    DecisionBody:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [APPROVE, REJECT] }
+        comment: { type: string, maxLength: 2000, description: Required to reject }
+        authorisedUntil: { type: string, format: date, description: Defaults to two years from now }
+
+    # ---- users ----
+    UserAssignment:
+      type: object
+      required: [assignmentId, role, status, scopeCodes, authorisedFrom, authorisedUntil]
+      properties:
+        assignmentId: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        status: { $ref: '#/components/schemas/AuthorisationStatus' }
+        scopeCodes: { type: array, items: { type: string } }
+        authorisedFrom: { type: [string, 'null'], format: date-time }
+        authorisedUntil: { type: [string, 'null'], format: date-time }
+    UserSummary:
+      type: object
+      required: [id, name, email, avatarUrl, position, unit, assignments]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        avatarUrl: { type: [string, 'null'] }
+        position: { type: [string, 'null'] }
+        unit: { type: [string, 'null'] }
+        assignments: { type: array, items: { $ref: '#/components/schemas/UserAssignment' } }
+    UpdateAssignmentBody:
+      type: object
+      minProperties: 1
+      properties:
+        status: { $ref: '#/components/schemas/AuthorisationStatus' }
+        scopeCodes: { type: array, items: { type: string } }
+
+    # ---- dashboard, audit, notifications ----
+    DashboardData:
+      type: object
+      required: [role, stats, queue]
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        stats:
+          type: array
+          items:
+            type: object
+            required: [key, label, value, tone]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              value: { type: number }
+              tone: { type: string, enum: [blue, amber, green, red, purple] }
+        queue:
+          type: array
+          items:
+            type: object
+            required: [id, number, client, scope, status, link]
+            properties:
+              id: { type: string }
+              number: { type: string }
+              client: { type: string }
+              scope: { type: string }
+              status: { type: string }
+              dueInDays: { type: integer }
+              link: { type: string }
+        trend:
+          type: array
+          items:
+            type: object
+            required: [label, issued, requested]
+            properties: { label: { type: string }, issued: { type: integer }, requested: { type: integer } }
+        statusBreakdown:
+          type: array
+          items:
+            type: object
+            required: [status, count]
+            properties: { status: { type: string }, count: { type: integer } }
+        sla:
+          type: object
+          required: [achievedPct, targetPct]
+          properties: { achievedPct: { type: number }, targetPct: { type: number, const: 90 } }
+        recentActivity:
+          type: array
+          items:
+            type: object
+            required: [at, text, ok]
+            properties: { at: { $ref: '#/components/schemas/DateTime' }, text: { type: string }, ok: { type: boolean } }
+    AuditPage:
+      allOf:
+        - { $ref: '#/components/schemas/PageMeta' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: array, items: { $ref: '#/components/schemas/TimelineEntry' } }
+    Notification:
+      type: object
+      required: [id, message, link, read, createdAt]
+      properties:
+        id: { type: string }
+        message: { type: string }
+        link: { type: [string, 'null'] }
+        read: { type: boolean }
+        createdAt: { $ref: '#/components/schemas/DateTime' }
+    NotificationList:
+      type: object
+      required: [items, unread]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+        unread: { type: integer }
+    MarkNotificationsReadBody:
+      type: object
+      properties:
+        ids: { type: array, items: { type: string }, description: Omit to mark all visible notifications read }

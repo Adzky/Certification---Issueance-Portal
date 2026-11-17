@@ -2,11 +2,12 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/repositories/prisma';
 import { DomainError } from '@/domain/errors';
-import { assertCan } from '@/domain/permissions';
+import { assertCan, ROLE_ACTIONS, ROLES } from '@/domain/permissions';
 import type { Actor, AuthorisationStatus, Role } from '@/domain/types';
 import { recordAudit } from './audit';
 import { parseInput } from './context';
 import type { UserSummary } from './dtoAdmin';
+import type { SessionInfo } from '@/contract/types';
 
 const userInclude = {
   roleAssignments: { include: { scopes: true }, orderBy: { role: 'asc' } },
@@ -87,4 +88,23 @@ export async function updateAssignment(
   });
   const u = await prisma.user.findUniqueOrThrow({ where: { id: userId }, include: userInclude });
   return toUserSummary(u);
+}
+
+/** The signed-in view for GET /api/session. Permissions are empty unless the assignment is usable. */
+export async function getSessionInfo(actor: Actor): Promise<SessionInfo> {
+  const u = await prisma.user.findUnique({
+    where: { id: actor.userId },
+    include: { roleAssignments: { where: { status: { in: ['ACTIVE', 'RESTRICTED'] } }, select: { role: true } } },
+  });
+  if (!u) throw new DomainError('UNAUTHENTICATED', 'Sign in required');
+  const usable = actor.assignmentStatus === 'ACTIVE' || actor.assignmentStatus === 'RESTRICTED';
+  const roles = new Set(u.roleAssignments.map((a) => a.role));
+  return {
+    user: { id: u.id, name: u.name, email: u.email, avatarUrl: u.avatarUrl, position: u.position, unit: u.unit },
+    role: actor.role,
+    roles: ROLES.filter((r) => roles.has(r)),
+    assignmentStatus: actor.assignmentStatus,
+    scopeCodes: actor.scopeCodes,
+    permissions: usable ? [...ROLE_ACTIONS[actor.role]] : [],
+  };
 }
