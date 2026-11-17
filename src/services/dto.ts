@@ -85,6 +85,9 @@ export interface VerificationResultDto {
 export interface DocumentDetail extends DocumentSummary {
   fields: Record<string, string>;
   verifications: VerificationResultDto[];
+  /** Comment of the most recent verification result (approve or return), if any. */
+  latestVerifierComment: string | null;
+  /** Signatory's reason, from the `document.reject` audit comment (REJECTED documents only). */
   rejectionReason: string | null;
   signature: { signerId: string; signerName: string; signedAt: string } | null;
   certificateId: string | null;
@@ -207,6 +210,7 @@ export function toDocumentDetail(d: DocumentDetailRow, rejectionReason: string |
       comment: v.comment,
       createdAt: iso(v.createdAt),
     })),
+    latestVerifierComment: d.verifications.at(-1)?.comment ?? null,
     rejectionReason,
     signature: d.signature
       ? { signerId: d.signature.signerId, signerName: d.signature.signer.name, signedAt: iso(d.signature.signedAt) }

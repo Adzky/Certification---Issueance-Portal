@@ -97,6 +97,11 @@ describe('request and document journey', () => {
       'document.verify',
       'document.sign',
     ]);
+    const issueRows = await prisma.auditLog.findMany({
+      where: { action: 'certificate.issue', entityType: 'CERTIFICATE', entityId: certificate.id },
+    });
+    expect(issueRows).toHaveLength(1);
+    expect(issueRows[0].entityLabel).toBe(certificate.number);
   });
 
   it('return bumps version and resubmits', async () => {
@@ -108,6 +113,7 @@ describe('request and document journey', () => {
     expect(returned.status).toBe('REVISION');
     expect(returned.version).toBe('v1.1');
     expect(returned.verifications.at(-1)?.comment).toBe('Fix client address');
+    expect(returned.latestVerifierComment).toBe('Fix client address');
     expect((await getRequest(f.officer, request.id)).status).toBe('REVISION_REQUIRED');
 
     await updateDocumentFields(f.officer, doc.id, { clientAddress: 'Jl. Industri No. 14, Cikarang' });

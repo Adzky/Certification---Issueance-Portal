@@ -269,6 +269,14 @@ export async function signDocument(
       entityLabel: doc.number,
       comment: `Certificate ${cert.number} issued`,
     });
+    await recordAudit(tx, {
+      actor,
+      action: 'certificate.issue',
+      entityType: 'CERTIFICATE',
+      entityId: cert.id,
+      entityLabel: cert.number,
+      comment: `Issued from ${doc.number} for ${doc.request.number}`,
+    });
     const message = `Certificate ${cert.number} issued for ${doc.request.number} (${doc.request.client.name})`;
     const link = `/certificates?id=${cert.id}`;
     await notify(tx, { recipientUserId: doc.preparedById, message, link });
