@@ -31,6 +31,7 @@ export interface DataTableColumn<T> {
 
 /** Server-paginated, server-sorted table with row selection and a "Showing a – b of N" footer. */
 export interface DataTableProps<T> {
+  /** Must be a stable reference (module constant or `useMemo`) — a new array every render rebuilds the table. */
   columns: readonly DataTableColumn<T>[];
   /** Rows of the current page only. */
   data: readonly T[];
@@ -166,11 +167,23 @@ export function DataTable<T extends RowData>({
                   <tr
                     key={row.id}
                     data-state={selected ? 'selected' : undefined}
-                    aria-selected={onSelect ? selected : undefined}
+                    tabIndex={onSelect ? 0 : undefined}
                     onClick={onSelect ? () => onSelect(row.original) : undefined}
+                    onKeyDown={
+                      onSelect
+                        ? (e) => {
+                            if (e.target !== e.currentTarget) return;
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              onSelect(row.original);
+                            }
+                          }
+                        : undefined
+                    }
                     className={cn(
                       'border-b transition-colors last:border-b-0',
-                      onSelect && 'cursor-pointer hover:bg-[#f7f9fd]',
+                      onSelect &&
+                        'cursor-pointer hover:bg-[#f7f9fd] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
                       selected && 'bg-tone-blue-soft/70 hover:bg-tone-blue-soft/70',
                     )}
                   >
@@ -188,9 +201,13 @@ export function DataTable<T extends RowData>({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm">
-        <p className="text-muted-foreground" aria-live="polite">
-          Showing {from} – {to} of {total} {noun}
-        </p>
+        {loading ? (
+          <span className="h-5 w-40 animate-pulse rounded bg-muted" aria-hidden />
+        ) : (
+          <p className="text-muted-foreground" aria-live="polite">
+            Showing {from} – {to} of {total} {noun}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-4">
           {onPageSizeChange && (
             <label className="flex items-center gap-2 text-muted-foreground">

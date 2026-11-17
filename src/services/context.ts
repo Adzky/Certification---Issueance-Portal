@@ -76,3 +76,26 @@ export function statusStats(
   }
   return stats;
 }
+
+const PRIORITY_RANK: Record<string, number> = { HIGH: 3, NORMAL: 2, LOW: 1 };
+
+/** Sort rank of a priority (HIGH > NORMAL > LOW); unknown values sort lowest. */
+export const priorityRank = (priority: string): number => PRIORITY_RANK[priority] ?? 0;
+
+/**
+ * Orders `{ id, priority, tiebreak }` rows by priority rank (`desc` = HIGH first), ties broken by
+ * `tiebreak` descending, and returns the ids of the requested page. Priority is a text column, so
+ * a database ORDER BY would sort it alphabetically; at demo scale an in-memory sort is simplest.
+ */
+export function pageIdsByPriority(
+  rows: { id: string; priority: string; tiebreak: string }[],
+  dir: 'asc' | 'desc',
+  skip: number,
+  take: number,
+): string[] {
+  const sign = dir === 'asc' ? 1 : -1;
+  return [...rows]
+    .sort((a, b) => sign * (priorityRank(a.priority) - priorityRank(b.priority)) || b.tiebreak.localeCompare(a.tiebreak))
+    .slice(skip, skip + take)
+    .map((r) => r.id);
+}

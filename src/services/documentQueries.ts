@@ -6,6 +6,7 @@ import {
   actionableScopes,
   assertReadable,
   dateRange,
+  pageIdsByPriority,
   paging,
   readableScopes,
   sortDir,
@@ -64,14 +65,16 @@ export async function getDocument(actor: Actor, id: string): Promise<DocumentDet
   return loadDocumentDetail(prisma, id);
 }
 
-const SORTS: Record<string, (dir: 'asc' | 'desc') => Prisma.DocumentOrderByWithRelationInput> = {
+const SORTS: Record<string, (dir: 'asc' | 'desc') => Prisma.DocumentOrderByWithRelationInput | Prisma.DocumentOrderByWithRelationInput[]> = {
+  type: (dir) => ({ type: dir }),
+  version: (dir) => [{ majorVersion: dir }, { minorVersion: dir }],
+  clientName: (dir) => ({ request: { client: { name: dir } } }),
   createdAt: (dir) => ({ createdAt: dir }),
   updatedAt: (dir) => ({ updatedAt: dir }),
   number: (dir) => ({ number: dir }),
   status: (dir) => ({ status: dir }),
   dueDate: (dir) => ({ request: { dueDate: dir } }),
-  priority: (dir) => ({ request: { priority: dir } }),
-  requestNumber: (dir) => ({ request: { number: dir } }),
+    requestNumber: (dir) => ({ request: { number: dir } }),
 };
 
 export async function listDocuments(
@@ -108,15 +111,26 @@ export async function listDocuments(
   const where: Prisma.DocumentWhereInput = { AND: and };
 
   const { page, pageSize, skip } = paging(q);
-  const order = (SORTS[q.sort ?? ''] ?? SORTS.updatedAt)(sortDir(q));
+  const dir = sortDir(q);
+  const loadPage = async () => {
+    if (q.sort !== 'priority') {
+      const order = (SORTS[q.sort ?? ''] ?? SORTS.updatedAt)(dir);
+      return prisma.document.findMany({
+        where,
+        include: documentInclude,
+        orderBy: [...(Array.isArray(order) ? order : [order]), { number: 'desc' }],
+        skip,
+        take: pageSize,
+      });
+    }
+    const all = await prisma.document.findMany({ where, select: { id: true, number: true, request: { select: { priority: true } } } });
+    const ids = pageIdsByPriority(all.map((d) => ({ id: d.id, priority: d.request.priority, tiebreak: d.number })), dir, skip, pageSize);
+    const found = await prisma.document.findMany({ where: { id: { in: ids } }, include: documentInclude });
+    const byId = new Map(found.map((d) => [d.id, d]));
+    return ids.map((id) => byId.get(id)!);
+  };
   const [rows, total, grouped] = await Promise.all([
-    prisma.document.findMany({
-      where,
-      include: documentInclude,
-      orderBy: [order, { number: 'desc' }],
-      skip,
-      take: pageSize,
-    }),
+    loadPage(),
     prisma.document.count({ where }),
     prisma.document.groupBy({ by: ['status'], where: visible, _count: { _all: true } }),
   ]);

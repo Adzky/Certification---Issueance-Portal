@@ -43,18 +43,16 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="w-[22rem] p-0">
         <div className="flex items-center justify-between px-3 py-2.5">
           <DropdownMenuLabel className="p-0 text-sm font-semibold text-foreground">Notifications</DropdownMenuLabel>
-          <Button
-            variant="link"
-            size="xs"
-            className="h-auto p-0"
+          <DropdownMenuItem
+            className="h-auto w-auto gap-1 p-0 text-xs font-medium text-primary focus:bg-transparent focus:underline"
             disabled={unread === 0 || markRead.isPending}
-            onClick={(e) => {
+            onSelect={(e) => {
               e.preventDefault();
               markRead.mutate({});
             }}
           >
             <CheckCheck /> Mark all read
-          </Button>
+          </DropdownMenuItem>
         </div>
         <DropdownMenuSeparator className="m-0" />
         <div className="max-h-80 overflow-y-auto py-1">
@@ -70,10 +68,9 @@ export function NotificationBell() {
                   if (n.link) router.push(n.link);
                 }}
               >
-                <span
-                  className={cn('mt-1.5 size-2 shrink-0 rounded-full', n.read ? 'bg-transparent' : 'bg-primary')}
-                  aria-label={n.read ? undefined : 'Unread'}
-                />
+                <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', n.read ? 'bg-transparent' : 'bg-primary')}>
+                  {!n.read && <span className="sr-only">Unread</span>}
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className={cn('block text-[13px] leading-snug whitespace-normal', !n.read && 'font-medium')}>
                     {n.message}

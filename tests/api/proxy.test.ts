@@ -8,12 +8,12 @@ const req = (pathname: string, cookie?: string) =>
   new NextRequest(`http://localhost${pathname}`, { headers: cookie ? { cookie } : {} });
 
 describe('proxy (portal auth guard)', () => {
-  it.each(['/login', '/register/1', '/register/step/2', '/verify/CERT-1', '/api/requests', '/_next/static/x.js', '/favicon.ico', '/logo.png'])(
+  it.each(['/login', '/register/1', '/register/step/2', '/verify/CERT-1', '/api/requests', '/_next/static/x.js', '/favicon.ico', '/icon.svg', '/brand/logo.svg'])(
     '%s is public',
     (p) => expect(isPublicPath(p)).toBe(true),
   );
 
-  it.each(['/', '/dashboard', '/requests', '/drafts/abc/edit', '/loginx', '/registered', '/verifyx'])('%s is a portal path', (p) =>
+  it.each(['/', '/dashboard', '/requests', '/drafts/abc/edit', '/loginx', '/registered', '/verifyx', '/requests/x.json', '/logo.png', '/drafts/a.pdf'])('%s is a portal path', (p) =>
     expect(isPublicPath(p)).toBe(false),
   );
 

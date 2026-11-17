@@ -11,6 +11,7 @@ import { recordAudit } from './audit';
 import {
   assertReadable,
   dateRange,
+  pageIdsByPriority,
   paging,
   parseInput,
   readableScopes,
@@ -86,7 +87,13 @@ export async function createRequest(
   return loadRequestDetail(prisma, id);
 }
 
-const SORTABLE = ['createdAt', 'number', 'dueDate', 'priority', 'status', 'updatedAt'] as const;
+const SORTABLE = ['createdAt', 'number', 'dueDate', 'priority', 'status', 'updatedAt', 'clientName', 'scopeName'] as const;
+
+function requestOrderBy(sortKey: string, dir: 'asc' | 'desc'): Prisma.IssuanceRequestOrderByWithRelationInput[] {
+  const primary: Prisma.IssuanceRequestOrderByWithRelationInput =
+    sortKey === 'clientName' ? { client: { name: dir } } : sortKey === 'scopeName' ? { scope: { name: dir } } : { [sortKey]: dir };
+  return [primary, { number: 'desc' }];
+}
 
 export async function listRequests(
   actor: Actor,
@@ -116,14 +123,25 @@ export async function listRequests(
 
   const { page, pageSize, skip } = paging(q);
   const sortKey = (SORTABLE as readonly string[]).includes(q.sort ?? '') ? q.sort! : 'createdAt';
+  const dir = sortDir(q);
+  const loadPage = async () => {
+    if (sortKey !== 'priority') {
+      return prisma.issuanceRequest.findMany({
+        where,
+        include: requestInclude,
+        orderBy: requestOrderBy(sortKey, dir),
+        skip,
+        take: pageSize,
+      });
+    }
+    const all = await prisma.issuanceRequest.findMany({ where, select: { id: true, priority: true, number: true } });
+    const ids = pageIdsByPriority(all.map((r) => ({ id: r.id, priority: r.priority, tiebreak: r.number })), dir, skip, pageSize);
+    const found = await prisma.issuanceRequest.findMany({ where: { id: { in: ids } }, include: requestInclude });
+    const byId = new Map(found.map((r) => [r.id, r]));
+    return ids.map((id) => byId.get(id)!);
+  };
   const [rows, total, grouped] = await Promise.all([
-    prisma.issuanceRequest.findMany({
-      where,
-      include: requestInclude,
-      orderBy: [{ [sortKey]: sortDir(q) }, { number: 'desc' }],
-      skip,
-      take: pageSize,
-    }),
+    loadPage(),
     prisma.issuanceRequest.count({ where }),
     prisma.issuanceRequest.groupBy({ by: ['status'], where: visible, _count: { _all: true } }),
   ]);
