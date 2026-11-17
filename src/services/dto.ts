@@ -1,121 +1,34 @@
 import type { Prisma } from '@prisma/client';
 import { displayCertificateStatus } from '@/domain/validity';
 import type {
-  CertificateDisplayStatus,
   CertificateStatus,
   DocumentStatus,
   DocumentType,
   Priority,
   RequestStatus,
-  Role,
 } from '@/domain/types';
+import type {
+  CertificateDetail,
+  CertificateSummary,
+  DocumentDetail,
+  DocumentSummary,
+  PublicCertificate,
+  RequestSummary,
+  VerificationResultDto,
+} from '@/contract/types';
 
-// ---------- Plain-JSON DTOs (dates are ISO strings) ----------
-
-export interface RequestSummary {
-  id: string;
-  number: string;
-  clientId: string;
-  clientName: string;
-  scopeCode: string;
-  scopeName: string;
-  schemeLabel: string;
-  documentType: DocumentType;
-  objectScope: string;
-  priority: Priority;
-  status: RequestStatus;
-  assigneeId: string | null;
-  assigneeName: string | null;
-  createdById: string;
-  dueDate: string;
-  issuedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TimelineEntry {
-  id: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  entityLabel: string;
-  actorId: string | null;
-  actorName: string | null;
-  actorRole: Role | null;
-  comment: string | null;
-  at: string;
-}
-
-export interface DocumentSummary {
-  id: string;
-  number: string;
-  requestId: string;
-  requestNumber: string;
-  clientName: string;
-  scopeCode: string;
-  scopeName: string;
-  priority: Priority;
-  dueDate: string;
-  type: DocumentType;
-  version: string;
-  status: DocumentStatus;
-  preparedById: string;
-  preparedByName: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RequestDetail extends RequestSummary {
-  clientAddress: string | null;
-  documents: DocumentSummary[];
-  timeline: TimelineEntry[];
-  certificate: { id: string; number: string; status: CertificateStatus } | null;
-}
-
-export interface VerificationResultDto {
-  id: string;
-  verifierId: string;
-  verifierName: string;
-  outcome: 'APPROVED' | 'RETURNED';
-  checklist: Record<string, boolean>;
-  comment: string | null;
-  createdAt: string;
-}
-
-export interface DocumentDetail extends DocumentSummary {
-  fields: Record<string, string>;
-  verifications: VerificationResultDto[];
-  /** Comment of the most recent verification result (approve or return), if any. */
-  latestVerifierComment: string | null;
-  /** Signatory's reason, from the `document.reject` audit comment (REJECTED documents only). */
-  rejectionReason: string | null;
-  signature: { signerId: string; signerName: string; signedAt: string } | null;
-  certificateId: string | null;
-  request: RequestSummary;
-}
-
-export interface CertificateDetail {
-  id: string;
-  number: string;
-  type: DocumentType;
-  requestId: string;
-  requestNumber: string;
-  documentId: string;
-  documentNumber: string;
-  clientName: string;
-  clientAddress: string | null;
-  scopeCode: string;
-  scopeName: string;
-  schemeLabel: string;
-  objectScope: string;
-  issueDate: string;
-  validUntil: string;
-  status: CertificateStatus;
-  displayStatus: CertificateDisplayStatus;
-  statusReason: string | null;
-  verificationToken: string;
-  createdAt: string;
-}
+// Plain-JSON DTOs (dates are ISO strings) live in the backend-neutral REST contract.
+export type {
+  CertificateDetail,
+  CertificateSummary,
+  DocumentDetail,
+  DocumentSummary,
+  PublicCertificate,
+  RequestDetail,
+  RequestSummary,
+  TimelineEntry,
+  VerificationResultDto,
+} from '@/contract/types';
 
 // ---------- Prisma includes + mappers ----------
 
@@ -250,34 +163,6 @@ export function toCertificateDetail(c: CertificateRow, now: Date = new Date()): 
     verificationToken: c.verificationToken,
     createdAt: iso(c.createdAt),
   };
-}
-
-export interface CertificateSummary {
-  id: string;
-  number: string;
-  type: DocumentType;
-  requestNumber: string;
-  clientName: string;
-  scopeCode: string;
-  scopeName: string;
-  schemeCode: string;
-  schemeLabel: string;
-  issueDate: string;
-  validUntil: string;
-  status: CertificateStatus;
-  displayStatus: CertificateDisplayStatus;
-}
-
-/** Public verification view: no internal ids, tokens or request data. */
-export interface PublicCertificate {
-  number: string;
-  type: DocumentType;
-  clientName: string;
-  scopeName: string;
-  schemeLabel: string;
-  issueDate: string;
-  validUntil: string;
-  displayStatus: CertificateDisplayStatus;
 }
 
 export function toCertificateSummary(c: CertificateRow, now: Date = new Date()): CertificateSummary {

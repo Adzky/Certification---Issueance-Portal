@@ -22,7 +22,9 @@ const DISPLAY_STATUSES: readonly CertificateDisplayStatus[] = [
   'IN_RENEWAL',
 ];
 
-export type CertificateStats = Record<CertificateDisplayStatus | 'TOTAL', number>;
+import type { CertificateStats } from '@/contract/types';
+
+export type { CertificateStats } from '@/contract/types';
 
 type Sortable = Pick<CertificateSummary, 'number' | 'issueDate' | 'validUntil' | 'clientName' | 'displayStatus'>;
 const SORT_KEYS: (keyof Sortable)[] = ['number', 'issueDate', 'validUntil', 'clientName', 'displayStatus'];

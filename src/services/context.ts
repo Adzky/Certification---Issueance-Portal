@@ -1,22 +1,10 @@
 import { z } from 'zod';
 import { DomainError } from '@/domain/errors';
 import { can } from '@/domain/permissions';
-import type { Action, Actor, DocumentType, Priority } from '@/domain/types';
+import type { Action, Actor } from '@/domain/types';
+import type { ListQuery } from '@/contract/types';
 
-/** Shared list query accepted by every list service. */
-export interface ListQuery {
-  q?: string;
-  status?: string;
-  scopeCode?: string;
-  priority?: Priority;
-  type?: DocumentType;
-  from?: string;
-  to?: string;
-  page?: number;
-  pageSize?: number;
-  sort?: string;
-  dir?: 'asc' | 'desc';
-}
+export type { ListQuery } from '@/contract/types';
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_PAGE_SIZE = 20;

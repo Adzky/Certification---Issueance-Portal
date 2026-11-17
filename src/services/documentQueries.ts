@@ -30,7 +30,9 @@ const DOCUMENT_STATUSES: readonly DocumentStatus[] = [
   'REJECTED',
 ];
 
-export type DocumentQueue = 'verification' | 'signing' | 'returned' | 'verifiedByMe' | 'signedByMe';
+import type { DocumentQueue } from '@/contract/types';
+
+export type { DocumentQueue } from '@/contract/types';
 
 /** Status + the actions that make an item "actionable" for each work queue. */
 const QUEUES: Record<'verification' | 'signing' | 'returned', { status: DocumentStatus; actions: Action[] }> = {
