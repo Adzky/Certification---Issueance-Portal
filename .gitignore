@@ -28,3 +28,7 @@ storage/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# e2e (separate dev server build dir and uploaded files)
+/.next-e2e/
+/storage-e2e/

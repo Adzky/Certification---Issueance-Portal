@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48" role="img" aria-label="JMU Sertifikasi – Certification &amp; Issuance Portal">
+  <g transform="translate(2 2)">
+    <path d="M22 0 2 7.4v14.6C2 34.6 10.6 44 22 47c11.4-3 20-12.4 20-25V7.4L22 0Z" fill="#0b1f4d"/>
+    <path d="M22 5.2 7 10.8v11.2c0 9.7 6.3 17.2 15 19.9 8.7-2.7 15-10.2 15-19.9V10.8L22 5.2Z" fill="#1d4ed8"/>
+    <path d="M22 5.2v36.7c8.7-2.7 15-10.2 15-19.9V10.8L22 5.2Z" fill="#3b82f6"/>
+    <path d="m14 23.5 5.6 5.6L30.5 18" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="54" y="23" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" font-size="17" font-weight="800" letter-spacing="0.3" fill="#0b1f4d">JMU SERTIFIKASI</text>
+  <text x="54" y="40" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" font-size="10.5" font-weight="500" fill="#334155">Certification &amp; Issuance Portal</text>
+</svg>
