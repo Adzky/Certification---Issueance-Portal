@@ -9,6 +9,8 @@ import type {
   DocumentDetail,
   DocumentListQuery,
   ListQuery,
+  LoginBody,
+  MarkNotificationsReadBody,
   RegistrationListQuery,
   ReturnBody,
   SignResult,
@@ -120,5 +122,38 @@ export function useWorkflowAction() {
   return useMutation({
     mutationFn: runWorkflowAction,
     onSettled: () => Promise.all(WORKFLOW_INVALIDATES.map((key) => qc.invalidateQueries({ queryKey: [key] }))),
+  });
+}
+
+/** Demo login as (user, role). Replaces every cached query with the new identity's session. */
+export function useLogin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: LoginBody) => api.session.login(body),
+    onSuccess: (session) => {
+      qc.clear();
+      qc.setQueryData(queryKeys.session, session);
+    },
+  });
+}
+
+/** Logout (also used by "Switch Role"): clears the cookie and every cached query. */
+export function useLogout() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.session.logout(),
+    onSettled: () => {
+      qc.clear();
+      qc.setQueryData(queryKeys.session, null);
+    },
+  });
+}
+
+/** Marks the given notifications (or all, when `ids` is omitted) read; updates the bell in place. */
+export function useMarkNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: MarkNotificationsReadBody = {}) => api.notifications.markRead(body),
+    onSuccess: (list) => qc.setQueryData(queryKeys.notifications, list),
   });
 }
