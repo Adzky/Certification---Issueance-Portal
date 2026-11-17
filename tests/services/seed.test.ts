@@ -167,18 +167,20 @@ describe('ensure-db', () => {
     });
     if (res.status !== 0) throw new Error(`ensure-db failed:\n${res.stdout}\n${res.stderr}`);
   };
-  // Counted in a child process so no SQLite handle stays open in this worker (Windows would then refuse to delete the file).
-  const userCount = (): number => {
+  // SQL runs in a child process so no SQLite handle stays open in this worker (Windows would then refuse to delete the file).
+  const sql = (statement: string): number => {
     const res = spawnSync(
       process.execPath,
       [
         '-e',
-        "const { createClient } = require('@libsql/client'); const c = createClient({ url: process.env.COUNT_URL }); c.execute('select count(*) as n from User').then((r) => { console.log(r.rows[0].n); c.close(); });",
+        "const { createClient } = require('@libsql/client'); const c = createClient({ url: process.env.COUNT_URL }); c.execute(process.env.STMT).then((r) => { console.log(r.rows[0] ? Object.values(r.rows[0])[0] : 0); c.close(); });",
       ],
-      { cwd: ROOT, env: { ...process.env, COUNT_URL: resolveDbUrl('file:./ensure-test.db') }, encoding: 'utf8' },
+      { cwd: ROOT, env: { ...process.env, COUNT_URL: resolveDbUrl('file:./ensure-test.db'), STMT: statement }, encoding: 'utf8' },
     );
     return Number(res.stdout.trim());
   };
+  const userCount = (): number => sql('select count(*) from User');
+  const marker = (): number => sql("select count(*) from NumberSequence where key = '__seed_complete__'");
 
   beforeAll(() => {
     storage = fs.mkdtempSync(path.join(os.tmpdir(), 'ensure-storage-'));
@@ -193,10 +195,28 @@ describe('ensure-db', () => {
     run();
     const first = userCount();
     expect(first).toBe(42);
-    run(); // existing DB: migrate only, no reseed
+    expect(marker()).toBe(1);
+    run(); // completed DB: migrate only, no reseed
     expect(userCount()).toBe(first);
     clean();
     run(); // missing DB: seeded again
     expect(userCount()).toBe(first);
+  }, 400_000);
+
+  it('ensure-db reseeds a half-seeded DB (no completion marker) and then leaves it alone', () => {
+    clean();
+    run();
+    // Simulate an interrupted first seed: users exist, but the last step never ran.
+    sql("delete from NumberSequence where key = '__seed_complete__'");
+    sql('delete from Certificate');
+    expect(marker()).toBe(0);
+    expect(sql('select count(*) from Certificate')).toBe(0);
+    run();
+    expect(userCount()).toBe(42);
+    expect(sql('select count(*) from Certificate')).toBe(450);
+    expect(marker()).toBe(1);
+    sql("insert into Client (id, name) values ('sentinel', 'PT Sentinel')");
+    run(); // marker present: untouched
+    expect(sql("select count(*) from Client where id = 'sentinel'")).toBe(1);
   }, 400_000);
 });

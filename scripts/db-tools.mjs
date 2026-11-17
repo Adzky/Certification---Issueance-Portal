@@ -29,9 +29,8 @@ export function dbFilePath() {
   return path.isAbsolute(p) ? p : path.resolve(root, 'prisma', p);
 }
 
-export function removeDbFiles(file) {
-  for (const suffix of ['', '-journal', '-wal', '-shm']) fs.rmSync(file + suffix, { force: true });
-}
+/** NumberSequence key written as the last step of a complete seed (see prisma/seed.ts). */
+export const SEED_MARKER_KEY = '__seed_complete__';
 
 function run(label, entry, args) {
   const res = spawnSync(process.execPath, [path.join(root, entry), ...args], {

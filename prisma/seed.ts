@@ -153,6 +153,9 @@ export async function seed(db: PrismaClient, now: Date): Promise<void> {
 
   // ---- one pending registration for the manager to approve ----
   await seedRegistration(db, now);
+
+  // Completion marker, written last: scripts/ensure-db.mjs reseeds a database that lacks it.
+  await db.numberSequence.create({ data: { key: '__seed_complete__', next: 1 } });
 }
 
 function planFlows(
