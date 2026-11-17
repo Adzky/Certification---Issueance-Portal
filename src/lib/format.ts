@@ -35,3 +35,7 @@ export function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
+
+const dateUtcFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+/** `16 Oct 2026` in UTC: certificate issue / validity dates are UTC days (ruling R9), shown the same in the PDF. */
+export const formatDateUtc = (iso: string) => dateUtcFmt.format(new Date(iso));

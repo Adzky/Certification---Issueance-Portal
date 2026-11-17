@@ -1,13 +1,14 @@
 import { expect, request, type APIRequestContext, type Page } from '@playwright/test';
 import { E2E_BASE_URL } from './env';
 
-export type RoleName = 'ISSUANCE_OFFICER' | 'DOCUMENT_VERIFIER' | 'AUTHORISED_SIGNATORY';
+export type RoleName = 'ISSUANCE_OFFICER' | 'DOCUMENT_VERIFIER' | 'AUTHORISED_SIGNATORY' | 'ISSUANCE_MANAGER';
 
 /** Demo person per role (the highlighted users of the seed data). */
 export const PERSON: Record<RoleName, { card: RegExp; name: string }> = {
   ISSUANCE_OFFICER: { card: /^Issuance Officer/, name: 'Andi Pratama' },
   DOCUMENT_VERIFIER: { card: /^Document Verifier/, name: 'Dewi Lestari' },
   AUTHORISED_SIGNATORY: { card: /^Authorised Signatory/, name: 'Budi Santoso' },
+  ISSUANCE_MANAGER: { card: /^Issuance Manager/, name: 'Rina Wulandari' },
 };
 
 /** Signs in through the login page (role card, then the person) and waits for the dashboard. */
@@ -83,4 +84,17 @@ const CHECKLIST_KEYS = ['client_data', 'scope_matches', 'results_consistent', 'r
 export async function verifyDraft(verifier: APIRequestContext, documentId: string): Promise<void> {
   const checklist = Object.fromEntries(CHECKLIST_KEYS.map((k) => [k, true]));
   await json(await verifier.post(`/api/documents/${documentId}/verify`, { data: { checklist } }));
+}
+
+/** Drives a fresh document through submit -> verify -> sign via the API and returns the issued certificate. */
+export async function issueCertificateViaApi(objectScope = 'E2E certificate scenario'): Promise<{ certificateId: string; number: string; clientName: string }> {
+  const [officer, verifier, signatory] = await Promise.all([apiAs('ISSUANCE_OFFICER'), apiAs('DOCUMENT_VERIFIER'), apiAs('AUTHORISED_SIGNATORY')]);
+  try {
+    const seed = await seedSubmittedDraft(officer, objectScope);
+    await verifyDraft(verifier, seed.documentId);
+    const signed = await json<{ certificate: { id: string; number: string } }>(await signatory.post(`/api/documents/${seed.documentId}/sign`));
+    return { certificateId: signed.certificate.id, number: signed.certificate.number, clientName: seed.clientName };
+  } finally {
+    await Promise.all([officer.dispose(), verifier.dispose(), signatory.dispose()]);
+  }
 }

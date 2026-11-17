@@ -137,3 +137,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Certificate "Print": show only the preview (marked data-print-area). */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  [data-print-area],
+  [data-print-area] * {
+    visibility: visible !important;
+  }
+  [data-print-area] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+  }
+}
