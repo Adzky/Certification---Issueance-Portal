@@ -49,30 +49,9 @@ function run(label, entry, args) {
 export const migrateDeploy = () =>
   run('prisma migrate deploy', 'node_modules/prisma/build/index.js', ['migrate', 'deploy']);
 
-/**
- * Runs prisma/seed.ts through tsx. The seed prints "Seeded ..." as its last act. On Windows the
- * native SQLite driver has been seen to crash while the process shuts down, after all work is
- * committed, so a non-zero exit with that line already printed still counts as success.
- */
-export function runSeed(...flags) {
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    // A retry starts from a clean slate, because the crashed attempt may have left partial rows.
-    const args = attempt === 1 ? flags : [...new Set([...flags, '--reset'])];
-    const res = spawnSync(process.execPath, [path.join(root, 'node_modules/tsx/dist/cli.mjs'), 'prisma/seed.ts', ...args], {
-      cwd: root,
-      stdio: ['inherit', 'pipe', 'inherit'],
-      env: process.env,
-      encoding: 'utf8',
-    });
-    if (res.stdout) process.stdout.write(res.stdout);
-    if (res.status === 0 || (res.stdout ?? '').includes('Seeded ')) return true;
-    console.error(`Seeding failed${res.error ? `: ${res.error.message}` : ` (exit ${res.status})`}`);
-    // Exit code 1 is a JavaScript error (it would fail again); anything else is the native driver crashing.
-    if (res.status === 1 || res.error) return false;
-    console.error('The SQLite driver crashed; retrying...');
-  }
-  return false;
-}
+/** Runs prisma/seed.ts through tsx; a failed seed (any non-zero exit) is reported, never masked. */
+export const runSeed = (...flags) =>
+  run('Seeding', 'node_modules/tsx/dist/cli.mjs', ['prisma/seed.ts', ...flags]);
 
 export function storageDir() {
   return path.resolve(process.env.STORAGE_DIR ?? path.join(root, 'storage'));

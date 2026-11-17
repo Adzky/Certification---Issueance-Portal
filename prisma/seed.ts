@@ -418,8 +418,8 @@ if (/[\\/]seed\.ts$/.test(process.argv[1] ?? '')) {
     } catch (e) {
       console.error(e);
       process.exitCode = 1;
+    } finally {
+      await prisma.$disconnect();
     }
-    // Exit explicitly: closing the libsql connection natively can crash on Windows after the work is done.
-    process.exit(process.exitCode ?? 0);
   })();
 }

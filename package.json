@@ -53,5 +53,8 @@
     "typescript": "^5",
     "vitest": "^5.1.0",
     "yaml": "^2.9.1"
+  },
+  "overrides": {
+    "@libsql/client": "0.18.0"
   }
 }
