@@ -1,0 +1,214 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id         String   @id @default(cuid())
+  name       String
+  email      String   @unique
+  employeeId String?
+  phone      String?
+  avatarUrl  String?
+  position   String?
+  unit       String?
+  createdAt  DateTime @default(now())
+
+  roleAssignments   RoleAssignment[]
+  assignedRequests  IssuanceRequest[]         @relation("RequestAssignee")
+  createdRequests   IssuanceRequest[]         @relation("RequestCreator")
+  preparedDocuments Document[]
+  verifications     VerificationResult[]
+  signatures        Signature[]
+  applications      RegistrationApplication[]
+}
+
+model RoleAssignment {
+  id              String    @id @default(cuid())
+  userId          String
+  role            String
+  status          String
+  authorisedFrom  DateTime?
+  authorisedUntil DateTime?
+  authorisedById  String?
+
+  user   User                  @relation(fields: [userId], references: [id])
+  scopes RoleAssignmentScope[]
+
+  @@unique([userId, role])
+}
+
+model RoleAssignmentScope {
+  assignmentId String
+  scopeCode    String
+
+  assignment RoleAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  scope      ServiceScope   @relation(fields: [scopeCode], references: [code])
+
+  @@id([assignmentId, scopeCode])
+}
+
+model ServiceScope {
+  code         String @id
+  name         String
+  category     String
+  schemeLabel  String
+  documentType String
+  termMonths   Int
+  schemeCode   String
+
+  assignments RoleAssignmentScope[]
+  requests    IssuanceRequest[]
+}
+
+model Client {
+  id      String  @id @default(cuid())
+  name    String
+  address String?
+
+  requests IssuanceRequest[]
+}
+
+model IssuanceRequest {
+  id          String    @id @default(cuid())
+  number      String    @unique
+  clientId    String
+  scopeCode   String
+  objectScope String
+  priority    String
+  status      String
+  assigneeId  String?
+  createdById String
+  dueDate     DateTime
+  issuedAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  client      Client       @relation(fields: [clientId], references: [id])
+  scope       ServiceScope @relation(fields: [scopeCode], references: [code])
+  assignee    User?        @relation("RequestAssignee", fields: [assigneeId], references: [id])
+  createdBy   User         @relation("RequestCreator", fields: [createdById], references: [id])
+  documents   Document[]
+  certificate Certificate?
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  number       String   @unique
+  requestId    String
+  type         String
+  majorVersion Int      @default(1)
+  minorVersion Int      @default(0)
+  status       String
+  fieldsJson   String
+  preparedById String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  request       IssuanceRequest      @relation(fields: [requestId], references: [id])
+  preparedBy    User                 @relation(fields: [preparedById], references: [id])
+  verifications VerificationResult[]
+  signature     Signature?
+  certificate   Certificate?
+}
+
+model VerificationResult {
+  id            String   @id @default(cuid())
+  documentId    String
+  verifierId    String
+  outcome       String
+  checklistJson String
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id])
+  verifier User     @relation(fields: [verifierId], references: [id])
+}
+
+model Signature {
+  id         String   @id @default(cuid())
+  documentId String   @unique
+  signerId   String
+  signedAt   DateTime
+
+  document Document @relation(fields: [documentId], references: [id])
+  signer   User     @relation(fields: [signerId], references: [id])
+}
+
+model Certificate {
+  id                String   @id @default(cuid())
+  number            String   @unique
+  requestId         String   @unique
+  documentId        String   @unique
+  type              String
+  issueDate         DateTime
+  validUntil        DateTime
+  status            String
+  statusReason      String?
+  verificationToken String   @unique
+  createdAt         DateTime @default(now())
+
+  request  IssuanceRequest @relation(fields: [requestId], references: [id])
+  document Document        @relation(fields: [documentId], references: [id])
+}
+
+model RegistrationApplication {
+  id                  String    @id @default(cuid())
+  userId              String
+  role                String
+  requestedScopes     String
+  status              String
+  personalJson        String
+  employmentJson      String
+  declarationAccepted Boolean
+  decidedById         String?
+  decidedAt           DateTime?
+  decisionComment     String?
+  createdAt           DateTime  @default(now())
+
+  user      User              @relation(fields: [userId], references: [id])
+  documents ControlDocument[]
+}
+
+model ControlDocument {
+  id            String @id @default(cuid())
+  applicationId String
+  slot          Int
+  fileName      String
+  storagePath   String
+  sizeBytes     Int
+
+  application RegistrationApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actorRole   String?
+  action      String
+  entityType  String
+  entityId    String
+  entityLabel String
+  comment     String?
+  at          DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id              String   @id @default(cuid())
+  recipientRole   String?
+  recipientUserId String?
+  message         String
+  link            String?
+  read            Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model NumberSequence {
+  key  String @id
+  next Int
+}

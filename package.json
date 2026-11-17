@@ -7,10 +7,13 @@
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node node_modules/eslint/bin/eslint.js",
+    "postinstall": "node node_modules/prisma/build/index.js generate",
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:e2e": "node node_modules/@playwright/test/cli.js test"
   },
   "dependencies": {
+    "@prisma/adapter-libsql": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@react-pdf/renderer": "^4.9.0",
     "@tanstack/react-query": "^5.108.0",
     "@tanstack/react-table": "^9.3.1",
@@ -42,6 +45,7 @@
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "prisma": "^7.10.1",
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5",
