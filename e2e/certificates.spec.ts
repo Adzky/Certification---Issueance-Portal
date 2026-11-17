@@ -64,3 +64,16 @@ test('unknown certificate shows not found', async ({ browser }) => {
   await expect(pub.getByText('No certificate found with this number')).toBeVisible();
   await visitor.close();
 });
+
+test('malformed percent-encoding in the verify URL never causes a 500', async ({ browser }) => {
+  const visitor = await browser.newContext();
+  const pub = await visitor.newPage();
+  // Next rejects an invalid escape sequence itself (400)...
+  const bad = await pub.goto('/verify/%E0%A4%A');
+  expect(bad?.status()).toBeLessThan(500);
+  // ...and a literal "%" arrives already decoded, so decoding again used to throw (500).
+  const pct = await pub.goto('/verify/%25zz');
+  expect(pct?.status()).toBe(200);
+  await expect(pub.getByText('No certificate found with this number')).toBeVisible();
+  await visitor.close();
+});
