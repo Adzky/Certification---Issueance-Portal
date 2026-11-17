@@ -1,12 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { loginAs } from './helpers';
 
-async function loginAsOfficer(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.getByRole('button', { name: /^Issuance Officer/ }).click();
-  const picker = page.getByRole('dialog');
-  await picker.getByRole('button', { name: /Andi Pratama/ }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-}
+const loginAsOfficer = (page: Page) => loginAs(page, 'ISSUANCE_OFFICER');
 
 const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Main navigation' });
 

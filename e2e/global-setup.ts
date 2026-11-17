@@ -5,6 +5,8 @@ import { E2E_BASE_URL } from './env';
 const WARM_PATHS: Record<string, string[]> = {
   ISSUANCE_MANAGER: ['/login', '/dashboard', '/reports', '/requests'],
   ISSUANCE_OFFICER: ['/requests', '/drafts', '/drafts/warm/edit', '/drafts/warm/print'],
+  DOCUMENT_VERIFIER: ['/verification'],
+  AUTHORISED_SIGNATORY: ['/signing'],
 };
 
 async function warmUp(): Promise<void> {

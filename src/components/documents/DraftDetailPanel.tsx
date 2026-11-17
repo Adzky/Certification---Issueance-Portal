@@ -12,6 +12,7 @@ import { StatusPill } from '@/components/common/StatusPill';
 import { Button } from '@/components/ui/button';
 import { missingRequiredFields, TEMPLATE_FIELDS } from '@/domain/templates';
 import { formatDateTime } from '@/lib/format';
+import { ReviewHistory } from '@/components/review/shared';
 import { DocumentPreview } from './DocumentPreview';
 
 const EDITABLE = ['IN_PROGRESS', 'REVISION'];
@@ -87,30 +88,6 @@ function DraftPanelBody({ doc }: { doc: DocumentDetail }) {
     />
   );
 
-  const hasHistory = doc.verifications.length > 0 || !!doc.rejectionReason;
-  const history = hasHistory ? (
-    <ol className="space-y-3 text-sm">
-      {doc.rejectionReason && (
-        <li className="rounded-lg border border-tone-red/30 bg-tone-red-soft px-3 py-2">
-          <p className="font-semibold text-tone-red">Rejected by signatory</p>
-          <p className="mt-0.5">{doc.rejectionReason}</p>
-        </li>
-      )}
-      {[...doc.verifications].reverse().map((v) => (
-        <li key={v.id} className="border-l-2 border-primary/30 pl-3">
-          <p className="flex items-center gap-2 font-medium">
-            <StatusPill status={v.outcome === 'APPROVED' ? 'APPROVED' : 'REVISION'} label={v.outcome === 'APPROVED' ? 'Approved' : 'Returned'} />
-            {v.verifierName}
-          </p>
-          {v.comment && <p className="mt-1">{v.comment}</p>}
-          <p className="text-xs text-muted-foreground">{formatDateTime(v.createdAt)}</p>
-        </li>
-      ))}
-    </ol>
-  ) : (
-    <p className="py-6 text-center text-sm text-muted-foreground">No verifier comments or rejection reasons yet.</p>
-  );
-
   const actions = (
     <>
       <Button asChild variant="outline" className="gap-2 text-primary">
@@ -146,7 +123,7 @@ function DraftPanelBody({ doc }: { doc: DocumentDetail }) {
       tabs={[
         { key: 'overview', label: 'Overview', content: overview },
         { key: 'data', label: 'Document Data', content: data },
-        { key: 'history', label: 'Revision History', content: history },
+        { key: 'history', label: 'Revision History', content: <ReviewHistory doc={doc} /> },
       ]}
       actions={actions}
     />
