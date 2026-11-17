@@ -4,7 +4,7 @@ import { computeDueDate } from '../../src/domain/sla';
 import { addMonthsUtc, computeValidUntil } from '../../src/domain/validity';
 import type { DocumentType, Priority, Role } from '../../src/domain/types';
 import { VERIFICATION_CHECKLIST } from '../../src/domain/checklist';
-import { DAY, atWorkHour, slaSpanMs, spreadTimes, type AuditRowInput } from './audit';
+import { DAY, atWorkHour, fitToSla, slaSpanMs, spreadTimes, type AuditRowInput } from './audit';
 import type { Rng } from './prng';
 import { documentFields, OBJECT_SCOPES, RETURN_COMMENTS, REVOKE_REASONS, SUSPEND_REASONS } from './requests';
 
@@ -58,7 +58,7 @@ interface Item {
 }
 
 /** Share of history requests issued after their due date (keeps the seeded SLA just above the 90% target). */
-const LATE_SHARE = 0.041;
+const LATE_SHARE = 0.035;
 
 const eligible = (pool: PoolUser[], role: Role, scope: string) =>
   pool.filter((u) => u.role === role && u.scopes.includes(scope));
@@ -98,14 +98,15 @@ export function buildHistory(
     else if (phase === 'expired') validUntil = nowMs - rng.between(2, term === 12 ? 300 : 150) * DAY;
     else validUntil = nowMs + rng.between(32, term * 30 - 62) * DAY;
     const priority = rng.weighted({ NORMAL: 65, HIGH: 15, LOW: 20 });
-    const span = slaSpanMs(priority, rng.chance(LATE_SHARE), rng);
+    const late = rng.chance(LATE_SHARE);
+    const span = slaSpanMs(priority, late, rng);
     let issue: number;
     if (recent) issue = nowMs - rng.between(0.3, Math.max(0.6, 59.5 - span / DAY)) * DAY;
     else {
       issue = atWorkHour(addMonthsUtc(new Date(validUntil + DAY), -term).getTime(), rng).getTime();
       if (issue > nowMs - 61 * DAY) issue = atWorkHour(nowMs - (61 + rng.between(0, 20)) * DAY, rng).getTime();
     }
-    const createdAt = issue - span;
+    const createdAt = fitToSla(issue - span, issue, priority, late);
     const officers = eligible(pool, 'ISSUANCE_OFFICER', scope.code);
     items.push({
       idx: i,

@@ -59,6 +59,9 @@ export async function updateAssignment(
       include: { user: { select: { id: true, name: true } }, scopes: true },
     });
     if (!a) throw new DomainError('NOT_FOUND', 'Assignment not found');
+    if (data.status !== undefined && a.userId === actor.userId) {
+      throw new DomainError('FORBIDDEN', 'You cannot change the status of your own authorisation');
+    }
     const scopeCodes = data.scopeCodes ? [...new Set(data.scopeCodes)] : undefined;
     if (scopeCodes) {
       const known = await tx.serviceScope.findMany({ where: { code: { in: scopeCodes } }, select: { code: true } });

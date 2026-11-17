@@ -160,6 +160,32 @@ describe('seed', () => {
   });
 });
 
+describe('seeded SLA does not depend on the weekday the seed runs on', () => {
+  let storage: string;
+  beforeAll(() => {
+    storage = fs.mkdtempSync(path.join(os.tmpdir(), 'seed-sla-'));
+    process.env.STORAGE_DIR = storage;
+  });
+  afterAll(() => {
+    delete process.env.STORAGE_DIR;
+    fs.rmSync(storage, { recursive: true, force: true });
+  });
+
+  it('manager SLA is within 90-95% for seven consecutive run dates (every weekday)', async () => {
+    const seen: number[] = [];
+    for (let k = 0; k < 7; k++) {
+      const now = new Date(NOW.getTime() + k * 86_400_000);
+      await truncateAll(prisma);
+      await seed(prisma, now);
+      const manager = await actorFor(DEMO[3].email, 'ISSUANCE_MANAGER');
+      const pct = (await getDashboard(manager, now)).sla!.achievedPct;
+      seen.push(pct);
+      expect(pct, `${now.toUTCString()} -> ${seen.join(',')}`).toBeGreaterThanOrEqual(90);
+      expect(pct, `${now.toUTCString()} -> ${seen.join(',')}`).toBeLessThanOrEqual(95);
+    }
+  }, 900_000);
+});
+
 describe('ensure-db', () => {
   const dbFile = path.join(ROOT, 'prisma', 'ensure-test.db');
   const clean = () => {

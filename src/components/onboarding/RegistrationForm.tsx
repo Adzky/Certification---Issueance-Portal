@@ -50,7 +50,7 @@ export const DRAFT_KEY = 'jmu-registration-draft';
 
 interface Draft {
   role: Role;
-  values: Omit<RegistrationFormValues, 'declarationAccepted'>;
+  values: Omit<RegistrationFormValues, 'declarationAccepted' | 'personal'> & { personal: Omit<RegistrationFormValues['personal'], 'nationalId' | 'phone'> };
 }
 
 function readDraft(role: Role): Draft['values'] | null {
@@ -135,7 +135,7 @@ function initialValues(role: Role): { values: RegistrationFormValues; restored: 
   const draft = readDraft(role);
   if (!draft) return { values: EMPTY_VALUES, restored: false };
   return {
-    values: { ...EMPTY_VALUES, ...draft, personal: { ...EMPTY_VALUES.personal, ...draft.personal }, employment: { ...EMPTY_VALUES.employment, ...draft.employment } },
+    values: { ...EMPTY_VALUES, ...draft, personal: { ...EMPTY_VALUES.personal, ...draft.personal, nationalId: '', phone: '' }, employment: { ...EMPTY_VALUES.employment, ...draft.employment } },
     restored: true,
   };
 }
@@ -154,6 +154,7 @@ function RegistrationFormBody({ role, onSectionChange }: { role: Role; onSection
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
+  const [hasDraft, setHasDraft] = useState(initial.restored);
   const [active, setActive] = useState<SectionKey>('personal');
   const root = useRef<HTMLDivElement>(null);
 
@@ -209,12 +210,32 @@ function RegistrationFormBody({ role, onSectionChange }: { role: Role; onSection
 
   const saveDraft = () => {
     try {
-      const draft: Draft = { role, values: { personal: values.personal, employment: values.employment, scopes: values.scopes } };
+      // The national ID / passport number and phone number are never written to the browser.
+      const { nationalId: _n, phone: _p, ...personal } = values.personal;
+      void _n;
+      void _p;
+      const draft: Draft = { role, values: { personal, employment: values.employment, scopes: values.scopes } };
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-      toast.success('Draft saved', { description: 'Text fields are kept on this device. Documents are not stored and must be uploaded again.' });
+      setHasDraft(true);
+      toast.success('Draft saved', {
+        description:
+          'Your name, email and other details are kept on this device. National ID, phone and documents are not stored and must be entered again. Use Clear draft on a shared device.',
+      });
     } catch {
       toast.error('Could not save the draft in this browser');
     }
+  };
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* storage unavailable */
+    }
+    setHasDraft(false);
+    setValues(EMPTY_VALUES);
+    setErrors({});
+    toast.success('Draft cleared');
   };
 
   const onSubmit = async () => {
@@ -513,6 +534,11 @@ function RegistrationFormBody({ role, onSectionChange }: { role: Role; onSection
           <ArrowLeft aria-hidden /> Back: Role Review
         </Button>
         <div className="flex flex-wrap gap-3">
+          {hasDraft && (
+            <Button variant="ghost" size="lg" className="h-11" onClick={clearDraft}>
+              Clear draft
+            </Button>
+          )}
           <Button variant="outline" size="lg" className="h-11" onClick={saveDraft}>
             <Save aria-hidden /> Save as Draft
           </Button>

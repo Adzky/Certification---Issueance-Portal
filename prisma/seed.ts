@@ -28,7 +28,7 @@ import {
   verifyDocument,
 } from '../src/services/documents';
 import { submitRegistration } from '../src/services/registrations';
-import { DAY, HOUR, slaSpanMs, spreadTimes } from './seed-data/audit';
+import { DAY, HOUR, fitToSla, slaSpanMs, spreadTimes } from './seed-data/audit';
 import { buildHistory, type ClientRow, type PoolUser, type ScopeRow } from './seed-data/certificates';
 import { CLIENTS } from './seed-data/clients';
 import { minimalPdf } from './seed-data/pdf';
@@ -180,10 +180,11 @@ function planFlows(
     let createdAt: number;
     let endAt: number;
     if (issued) {
-      const span = slaSpanMs(spec.priority, rng.chance(spec.outcome === 'ISSUED' ? 0.1 : 0.3), rng);
+      const late = rng.chance(spec.outcome === 'ISSUED' ? 0.1 : 0.3);
+      const span = slaSpanMs(spec.priority, late, rng);
       const age = rng.between(0.3, Math.max(0.6, 59.5 - span / DAY));
       endAt = nowMs - age * DAY;
-      createdAt = endAt - span;
+      createdAt = fitToSla(endAt - span, endAt, spec.priority, late);
     } else {
       const [lo, hi] = AGE_DAYS[spec.outcome as keyof typeof AGE_DAYS];
       createdAt = nowMs - (spec.ageDays ?? rng.between(lo, hi)) * DAY;

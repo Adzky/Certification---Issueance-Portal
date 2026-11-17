@@ -185,6 +185,16 @@ describe('registrations', () => {
     await expectCode(getRegistration(f.manager, 'nope'), 'NOT_FOUND');
   });
 
+  it('an admin cannot change the status of their own assignment (self-lockout)', async () => {
+    const users = await listUsers(f.admin);
+    const own = users.find((u) => u.id === f.admin.userId)!.assignments[0]!;
+    await expectCode(updateAssignment(f.admin, own.assignmentId, { status: 'SUSPENDED' }), 'FORBIDDEN', 'own');
+    await expectCode(updateAssignment(f.admin, own.assignmentId, { status: 'REVOKED', scopeCodes: ['QMS'] }), 'FORBIDDEN');
+    expect((await loadActor(f.admin.userId, 'SYSTEM_ADMIN'))?.assignmentStatus).toBe('ACTIVE');
+    // other fields of one's own assignment stay editable
+    await updateAssignment(f.admin, own.assignmentId, { scopeCodes: ['QMS', 'ISMS'] });
+  });
+
   it("admin suspends a user's assignment -> loadActor returns SUSPENDED -> can() false", async () => {
     const users = await listUsers(f.admin);
     const assignment = users.find((u) => u.id === f.officer.userId)!.assignments[0];

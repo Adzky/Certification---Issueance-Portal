@@ -1,5 +1,5 @@
 import type { Priority } from '../../src/domain/types';
-import { SLA_WORKING_DAYS } from '../../src/domain/sla';
+import { computeDueDate, isSlaAchieved, SLA_WORKING_DAYS } from '../../src/domain/sla';
 import type { Rng } from './prng';
 
 export const HOUR = 3_600_000;
@@ -50,4 +50,18 @@ export function slaSpanMs(priority: Priority, late: boolean, rng: Rng): number {
   const workingDays = SLA_WORKING_DAYS[priority];
   const days = late ? ((workingDays * 7) / 5) * rng.between(1.2, 1.8) : workingDays * rng.between(0.4, 0.92);
   return Math.round(days * DAY);
+}
+
+/**
+ * Nudges a request's creation time (the issue time stays put) until its SLA outcome is the intended
+ * one, whatever weekday the seed runs on: on-time requests really meet the due date, late ones really miss it.
+ */
+export function fitToSla(createdAt: number, issuedAt: number, priority: Priority, late: boolean): number {
+  let c = createdAt;
+  for (let i = 0; i < 400; i++) {
+    const achieved = isSlaAchieved(computeDueDate(new Date(c), priority), new Date(issuedAt));
+    if (achieved !== late) break;
+    c += late ? -6 * HOUR : 6 * HOUR;
+  }
+  return c;
 }

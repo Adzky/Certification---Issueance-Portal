@@ -130,13 +130,24 @@ test('non-pdf upload shows an error on that row', async ({ page }) => {
   await expect(page.getByText('Full name is required')).toBeVisible();
 });
 
-test('save as draft keeps text fields across a reload (files are not stored)', async ({ page }) => {
+test('save as draft keeps text fields but not sensitive ones; Clear draft removes it', async ({ page }) => {
   await page.goto('/register/3?role=DOCUMENT_VERIFIER');
   await page.getByLabel('Full Name', { exact: true }).fill('Draft Person');
+  await page.getByLabel('National ID / Passport No.', { exact: true }).fill('3175000000000077');
+  await page.getByLabel('Phone Number', { exact: true }).fill('+62 811-0000-1111');
   await page.getByRole('button', { name: 'Save as Draft' }).click();
   await expect(page.getByText('Draft saved')).toBeVisible();
+  const stored = await page.evaluate(() => localStorage.getItem('jmu-registration-draft') ?? '');
+  expect(stored).toContain('Draft Person');
+  expect(stored).not.toContain('3175000000000077');
+  expect(stored).not.toContain('811-0000-1111');
   await page.reload();
   await expect(page.getByLabel('Full Name', { exact: true })).toHaveValue('Draft Person');
+  await expect(page.getByLabel('National ID / Passport No.', { exact: true })).toHaveValue('');
+  await expect(page.getByLabel('Phone Number', { exact: true })).toHaveValue('');
+  await page.getByRole('button', { name: 'Clear draft' }).click();
+  await expect(page.getByLabel('Full Name', { exact: true })).toHaveValue('');
+  expect(await page.evaluate(() => localStorage.getItem('jmu-registration-draft'))).toBeNull();
 });
 
 test('admin suspends a user and they disappear from login options', async ({ page, browser }) => {
