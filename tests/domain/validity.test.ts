@@ -18,11 +18,17 @@ describe('computeValidUntil', () => {
 });
 
 describe('displayCertificateStatus', () => {
-  it('ACTIVE with 31 days left', () => {
-    expect(displayCertificateStatus({ status: 'ACTIVE', validUntil: inDays(31) }, now)).toBe('ACTIVE');
+  // Window is measured to the end of validUntil's UTC day (now = 2026-11-17T10:00Z).
+  it('ACTIVE when more than 30 days remain', () => {
+    expect(displayCertificateStatus({ status: 'ACTIVE', validUntil: new Date('2026-12-17T00:00:00Z') }, now)).toBe('ACTIVE');
   });
-  it('EXPIRING with 30 days left', () => {
-    expect(displayCertificateStatus({ status: 'ACTIVE', validUntil: inDays(30) }, now)).toBe('EXPIRING');
+  it('EXPIRING when 30 days or fewer remain', () => {
+    expect(displayCertificateStatus({ status: 'ACTIVE', validUntil: new Date('2026-12-16T00:00:00Z') }, now)).toBe('EXPIRING');
+  });
+  it('valid through the whole validUntil day', () => {
+    const validUntil = new Date('2027-10-13T00:00:00Z');
+    expect(displayCertificateStatus({ status: 'ACTIVE', validUntil }, new Date('2027-10-13T18:00:00Z'))).not.toBe('EXPIRED');
+    expect(displayCertificateStatus({ status: 'ACTIVE', validUntil }, new Date('2027-10-14T00:00:01Z'))).toBe('EXPIRED');
   });
   it('EXPIRED when past', () => {
     expect(displayCertificateStatus({ status: 'ACTIVE', validUntil: inDays(-1) }, now)).toBe('EXPIRED');

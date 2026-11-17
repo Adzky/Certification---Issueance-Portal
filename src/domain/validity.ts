@@ -23,8 +23,11 @@ export function displayCertificateStatus(
   c: { status: CertificateStatus; validUntil: Date },
   now: Date,
 ): CertificateDisplayStatus {
+  // A certificate is valid through the whole of its validUntil UTC day.
+  const v = c.validUntil;
+  const endOfValidDay = Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()) + DAY_MS - 1;
   const live = c.status === 'ACTIVE' || c.status === 'IN_RENEWAL';
-  if (live && now.getTime() > c.validUntil.getTime()) return 'EXPIRED';
-  if (c.status === 'ACTIVE' && c.validUntil.getTime() - now.getTime() <= 30 * DAY_MS) return 'EXPIRING';
+  if (live && now.getTime() > endOfValidDay) return 'EXPIRED';
+  if (c.status === 'ACTIVE' && endOfValidDay - now.getTime() <= 30 * DAY_MS) return 'EXPIRING';
   return c.status;
 }
