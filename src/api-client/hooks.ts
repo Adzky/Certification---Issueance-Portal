@@ -1,11 +1,13 @@
 'use client';
 
 /** React Query hooks over the typed REST client. */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Action } from '@/domain/types';
 import type {
   AuditListQuery,
   CertificateDetail,
   CertificateListQuery,
+  CreateRequestBody,
   DocumentDetail,
   DocumentListQuery,
   ListQuery,
@@ -52,18 +54,24 @@ export function useSession() {
   });
 }
 
+/** `can(action)`: whether the signed-in role holds the action (empty until the session has loaded). */
+export function useCan(): (action: Action) => boolean {
+  const { data } = useSession();
+  return (action) => !!data?.permissions.includes(action);
+}
+
 export const useLoginOptions = () => useQuery({ queryKey: queryKeys.loginOptions, queryFn: api.loginOptions });
 export const useReference = () =>
   useQuery({ queryKey: queryKeys.reference, queryFn: api.reference, staleTime: 5 * 60_000 });
 export const usePermissions = () => useQuery({ queryKey: queryKeys.permissions, queryFn: api.permissions });
 
 export const useRequests = (q: ListQuery = {}) =>
-  useQuery({ queryKey: queryKeys.requests(q), queryFn: () => api.requests.list(q) });
+  useQuery({ queryKey: queryKeys.requests(q), queryFn: () => api.requests.list(q), placeholderData: keepPreviousData });
 export const useRequest = (id: string | null | undefined) =>
   useQuery({ queryKey: queryKeys.request(id ?? ''), queryFn: () => api.requests.get(id!), enabled: !!id });
 
 export const useDocuments = (q: DocumentListQuery = {}) =>
-  useQuery({ queryKey: queryKeys.documents(q), queryFn: () => api.documents.list(q) });
+  useQuery({ queryKey: queryKeys.documents(q), queryFn: () => api.documents.list(q), placeholderData: keepPreviousData });
 export const useDocument = (id: string | null | undefined) =>
   useQuery({ queryKey: queryKeys.document(id ?? ''), queryFn: () => api.documents.get(id!), enabled: !!id });
 
@@ -79,6 +87,24 @@ export const useNotifications = () =>
 export const useRegistrations = (q: RegistrationListQuery = {}) =>
   useQuery({ queryKey: queryKeys.registrations(q), queryFn: () => api.registrations.list(q) });
 export const useUsers = () => useQuery({ queryKey: queryKeys.users, queryFn: api.users.list });
+
+/** Creates an issuance request; refreshes request lists, dashboards and audit. */
+export function useCreateRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateRequestBody) => api.requests.create(body),
+    onSettled: () => Promise.all(['requests', 'dashboard', 'audit'].map((key) => qc.invalidateQueries({ queryKey: [key] }))),
+  });
+}
+
+/** Saves a draft's field values (PATCH). */
+export function useUpdateDocument() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, fields }: { id: string; fields: Record<string, string> }) => api.documents.updateFields(id, fields),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+  });
+}
 
 export type WorkflowAction =
   | { kind: 'prepare'; id: string; body?: undefined }
