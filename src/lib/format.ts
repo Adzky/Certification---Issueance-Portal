@@ -39,3 +39,7 @@ export function initials(name: string): string {
 const dateUtcFmt = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 /** `16 Oct 2026` in UTC: certificate issue / validity dates are UTC days (ruling R9), shown the same in the PDF. */
 export const formatDateUtc = (iso: string) => dateUtcFmt.format(new Date(iso));
+
+const numberFmt = new Intl.NumberFormat('en-US');
+/** `1234` -> `1,234` (thousands separators, fixed locale so server and client agree). */
+export const formatNumber = (n: number) => numberFmt.format(n);

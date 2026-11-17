@@ -1,7 +1,7 @@
 import { expect, request, type APIRequestContext, type Page } from '@playwright/test';
 import { E2E_BASE_URL } from './env';
 
-export type RoleName = 'ISSUANCE_OFFICER' | 'DOCUMENT_VERIFIER' | 'AUTHORISED_SIGNATORY' | 'ISSUANCE_MANAGER';
+export type RoleName = 'ISSUANCE_OFFICER' | 'DOCUMENT_VERIFIER' | 'AUTHORISED_SIGNATORY' | 'ISSUANCE_MANAGER' | 'SYSTEM_ADMIN';
 
 /** Demo person per role (the highlighted users of the seed data). */
 export const PERSON: Record<RoleName, { card: RegExp; name: string }> = {
@@ -9,6 +9,7 @@ export const PERSON: Record<RoleName, { card: RegExp; name: string }> = {
   DOCUMENT_VERIFIER: { card: /^Document Verifier/, name: 'Dewi Lestari' },
   AUTHORISED_SIGNATORY: { card: /^Authorised Signatory/, name: 'Budi Santoso' },
   ISSUANCE_MANAGER: { card: /^Issuance Manager/, name: 'Rina Wulandari' },
+  SYSTEM_ADMIN: { card: /^System Administrator/, name: 'Fajar Hidayat' },
 };
 
 /** Signs in through the login page (role card, then the person) and waits for the dashboard. */
