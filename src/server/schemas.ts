@@ -31,6 +31,9 @@ export const documentListQuerySchema = listQuerySchema.extend({
 });
 export const certificateListQuerySchema = listQuerySchema.extend({ scheme: optionalText });
 export const auditListQuerySchema = listQuerySchema.extend({ entityType: optionalText, entityId: optionalText, actorId: optionalText });
+export const dashboardQuerySchema = z.object({
+  periodDays: z.coerce.number().pipe(z.union([z.literal(7), z.literal(30), z.literal(90)], { error: 'periodDays must be 7, 30 or 90' })).optional(),
+});
 export const registrationListQuerySchema = z.object({ status: z.enum(['PENDING', 'APPROVED', 'REJECTED']).optional() });
 
 export const loginBody = z.object({ userId: z.string().min(1, 'User is required'), role: roleEnum });

@@ -37,7 +37,13 @@ const documentQueueInclude = {
   request: { include: { client: { select: { name: true } } } },
 } satisfies Prisma.DocumentInclude;
 
-export async function getDashboard(actor: Actor, now: Date): Promise<DashboardData> {
+export const DEFAULT_PERIOD_DAYS = 30;
+
+export async function getDashboard(
+  actor: Actor,
+  now: Date,
+  opts: { periodDays?: number } = {},
+): Promise<DashboardData> {
   switch (actor.role) {
     case 'ISSUANCE_OFFICER':
       return officerDashboard(actor, now);
@@ -46,7 +52,7 @@ export async function getDashboard(actor: Actor, now: Date): Promise<DashboardDa
     case 'AUTHORISED_SIGNATORY':
       return signatoryDashboard(actor, now);
     case 'ISSUANCE_MANAGER':
-      return managerDashboard(actor, now);
+      return managerDashboard(actor, now, opts.periodDays ?? DEFAULT_PERIOD_DAYS);
     case 'SYSTEM_ADMIN':
       return adminDashboard(actor);
   }
@@ -167,22 +173,28 @@ async function signatoryDashboard(actor: Actor, now: Date): Promise<DashboardDat
   };
 }
 
-async function managerDashboard(actor: Actor, now: Date): Promise<DashboardData> {
+async function managerDashboard(actor: Actor, now: Date, periodDays: number): Promise<DashboardData> {
   const nowMs = now.getTime();
   const firstStart = new Date(nowMs - BUCKETS * WEEK_MS);
   const period = { gt: firstStart, lte: now };
-  const [requests, certificates, issuedInPeriod, queue] = await Promise.all([
-    prisma.issuanceRequest.findMany({ select: { status: true, dueDate: true, createdAt: true } }),
+  // KPI cards, donut and queue cover requests created in the selected window (R15); the trend keeps its 5 weeks.
+  const periodStart = new Date(nowMs - periodDays * DAY_MS);
+  const [fetched, certificates, issuedInPeriod, queue] = await Promise.all([
+    prisma.issuanceRequest.findMany({
+      where: { createdAt: { gt: periodStart < firstStart ? periodStart : firstStart } },
+      select: { status: true, dueDate: true, createdAt: true },
+    }),
     prisma.certificate.findMany({ where: { issueDate: period }, select: { issueDate: true } }),
     prisma.issuanceRequest.findMany({ where: { issuedAt: period }, select: { dueDate: true, issuedAt: true } }),
     prisma.issuanceRequest.findMany({
-      where: { status: { not: 'ISSUED' } },
+      where: { status: { not: 'ISSUED' }, createdAt: { gt: periodStart } },
       include: requestQueueInclude,
       orderBy: [{ dueDate: 'asc' }, { number: 'asc' }],
       take: QUEUE_SIZE,
     }),
   ]);
 
+  const requests = fetched.filter((r) => r.createdAt > periodStart);
   const counts = new Map<string, number>();
   for (const r of requests) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
   const n = (...s: RequestStatus[]) => s.reduce((sum, k) => sum + (counts.get(k) ?? 0), 0);
@@ -195,7 +207,7 @@ async function managerDashboard(actor: Actor, now: Date): Promise<DashboardData>
     return {
       label: dayLabel(new Date(start)),
       issued: certificates.filter((c) => within(c.issueDate)).length,
-      requested: requests.filter((r) => within(r.createdAt)).length,
+      requested: fetched.filter((r) => within(r.createdAt)).length,
     };
   });
 

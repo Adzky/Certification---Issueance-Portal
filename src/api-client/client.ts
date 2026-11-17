@@ -157,7 +157,7 @@ export const api = {
     updateAssignment: (assignmentId: string, body: UpdateAssignmentBody) =>
       patch<UserSummary>(`/api/role-assignments/${seg(assignmentId)}`, body),
   },
-  dashboard: () => get<DashboardData>('/api/dashboard'),
+  dashboard: (periodDays?: number) => get<DashboardData>('/api/dashboard', periodDays ? { periodDays } : {}),
   audit: (q: AuditListQuery = {}) => get<Page<AuditEntry>>('/api/audit', q as Query),
   notifications: {
     list: () => get<NotificationList>('/api/notifications'),

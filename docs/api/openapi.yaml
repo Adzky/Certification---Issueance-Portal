@@ -572,10 +572,16 @@ paths:
       tags: [misc]
       operationId: getDashboard
       summary: Role-specific dashboard for the session role
+      description: >
+        For the Issuance Manager the KPI cards, status breakdown and priority queue cover requests created in the
+        last `periodDays` days (default 30); the trend chart always shows 5 weekly buckets. Other roles ignore it.
+      parameters:
+        - { name: periodDays, in: query, schema: { type: integer, enum: [7, 30, 90], default: 30 } }
       responses:
         '200':
           description: Dashboard
           content: { application/json: { schema: { $ref: '#/components/schemas/DashboardData' } } }
+        '400': { $ref: '#/components/responses/Validation' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
 
   /api/audit:

@@ -33,7 +33,7 @@ export const queryKeys = {
   certificate: (id: string) => ['certificates', 'detail', id] as const,
   registrations: (q?: RegistrationListQuery) => (q ? (['registrations', q] as const) : (['registrations'] as const)),
   users: ['users'] as const,
-  dashboard: ['dashboard'] as const,
+  dashboard: (periodDays?: number) => ['dashboard', periodDays ?? null] as const,
   audit: (q?: AuditListQuery) => (q ? (['audit', q] as const) : (['audit'] as const)),
   notifications: ['notifications'] as const,
 };
@@ -80,7 +80,8 @@ export const useCertificates = (q: CertificateListQuery = {}) =>
 export const useCertificate = (id: string | null | undefined) =>
   useQuery({ queryKey: queryKeys.certificate(id ?? ''), queryFn: () => api.certificates.get(id!), enabled: !!id });
 
-export const useDashboard = () => useQuery({ queryKey: queryKeys.dashboard, queryFn: api.dashboard });
+export const useDashboard = (periodDays?: number) =>
+  useQuery({ queryKey: queryKeys.dashboard(periodDays), queryFn: () => api.dashboard(periodDays), placeholderData: keepPreviousData });
 export const useAudit = (q: AuditListQuery = {}) => useQuery({ queryKey: queryKeys.audit(q), queryFn: () => api.audit(q) });
 export const useNotifications = () =>
   useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications.list, refetchInterval: 30_000 });

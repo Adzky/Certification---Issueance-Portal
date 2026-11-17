@@ -21,6 +21,7 @@ import * as loginOptionsRoute from '@app/api/login-options/route';
 import * as registrationsRoute from '@app/api/registrations/route';
 import * as notificationsRoute from '@app/api/notifications/route';
 import * as notificationsReadRoute from '@app/api/notifications/read/route';
+import * as dashboardRoute from '@app/api/dashboard/route';
 import * as documentsRoute from '@app/api/documents/route';
 import { resetDb, seedMinimal, sessionCookie, type Fixture } from '../setup/db';
 import { issueOne } from '../setup/journey';
@@ -391,6 +392,17 @@ describe('registrations (multipart) and notifications', () => {
     const r3 = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', body: payload });
     expect(r3.status).toBe(400);
     expect(r3.json.error.message).toBe('Expected a multipart/form-data body');
+  });
+
+  it('dashboard: periodDays accepts 7/30/90 and rejects anything else with 400', async () => {
+    const cookie = await sessionCookie(f.manager.userId, f.manager.role);
+    for (const d of ['7', '30', '90']) {
+      expect((await call(dashboardRoute.GET, { path: `/api/dashboard?periodDays=${d}`, cookie })).status).toBe(200);
+    }
+    expect((await call(dashboardRoute.GET, { path: '/api/dashboard', cookie })).status).toBe(200);
+    const bad = await call(dashboardRoute.GET, { path: '/api/dashboard?periodDays=45', cookie });
+    expect(bad.status).toBe(400);
+    expect(bad.json.error.code).toBe('VALIDATION');
   });
 
   it('notifications: lists those for the user or role and marks them read', async () => {
