@@ -1,7 +1,7 @@
 import { prisma } from '@/repositories/prisma';
 import { VERIFICATION_CHECKLIST } from '@/domain/checklist';
 import type { DocumentType } from '@/domain/types';
-import type { ReferenceData } from '@/contract/types';
+import type { PublicScope, ReferenceData } from '@/contract/types';
 
 export async function getReference(): Promise<ReferenceData> {
   const [clients, scopes] = await Promise.all([
@@ -21,4 +21,9 @@ export async function getReference(): Promise<ReferenceData> {
     })),
     checklist: VERIFICATION_CHECKLIST,
   };
+}
+
+/** Code, name and category of every service scope, for the unauthenticated onboarding form. */
+export async function listPublicScopes(): Promise<PublicScope[]> {
+  return prisma.serviceScope.findMany({ select: { code: true, name: true, category: true }, orderBy: { code: 'asc' } });
 }

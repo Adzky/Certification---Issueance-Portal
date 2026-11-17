@@ -242,6 +242,12 @@ export interface RegistrationStatusInfo {
   authorisedFrom?: string;
   authorisedUntil?: string;
   authorisedBy?: string;
+  /** Applicant's display name. */
+  applicantName?: string;
+  /** The new user's id; present only once APPROVED (it is what "Access My Dashboard" signs in with). */
+  userId?: string;
+  /** The manager's comment; present only when REJECTED. */
+  decisionComment?: string;
 }
 
 export interface UserAssignment {
@@ -322,6 +328,13 @@ export interface ServiceScopeDto {
   schemeCode: string;
   documentType: DocumentType;
   termMonths: number;
+}
+
+/** Public subset of a service scope (GET /api/public/scopes). */
+export interface PublicScope {
+  code: string;
+  name: string;
+  category: string;
 }
 
 export interface ReferenceData {

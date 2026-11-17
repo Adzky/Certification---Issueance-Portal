@@ -3,11 +3,11 @@ import { E2E_BASE_URL } from './env';
 
 /** Pages compiled up front so a cold `next dev` does not reload mid-test while compiling. */
 const WARM_PATHS: Record<string, string[]> = {
-  ISSUANCE_MANAGER: ['/login', '/dashboard', '/audit', '/reports', '/requests', '/certificates', '/verify/warm'],
+  ISSUANCE_MANAGER: ['/login', '/dashboard', '/audit', '/reports', '/requests', '/certificates', '/authorisations', '/register/1', '/register/2?role=DOCUMENT_VERIFIER', '/register/3?role=DOCUMENT_VERIFIER', '/register/4', '/api/public/scopes', '/verify/warm'],
   ISSUANCE_OFFICER: ['/dashboard', '/requests', '/drafts', '/drafts/warm/edit', '/drafts/warm/print', '/certificates', '/api/certificates/warm/pdf'],
   DOCUMENT_VERIFIER: ['/dashboard', '/verification'],
   AUTHORISED_SIGNATORY: ['/dashboard', '/signing'],
-  SYSTEM_ADMIN: ['/dashboard', '/audit', '/users'],
+  SYSTEM_ADMIN: ['/dashboard', '/audit', '/users', '/settings', '/settings/permissions'],
 };
 
 async function warmUp(): Promise<void> {

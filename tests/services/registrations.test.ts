@@ -138,7 +138,8 @@ describe('registrations', () => {
     expect(actor).toMatchObject({ userId, role: 'ISSUANCE_OFFICER', assignmentStatus: 'ACTIVE' });
     expect([...actor!.scopeCodes].sort()).toEqual(['ISMS', 'QMS']);
     const st = await getRegistrationStatus(applicationId);
-    expect(st).toMatchObject({ status: 'APPROVED', assignmentStatus: 'ACTIVE', authorisedBy: 'Test manager' });
+    expect(st).toMatchObject({ status: 'APPROVED', assignmentStatus: 'ACTIVE', authorisedBy: 'Test manager', userId, applicantName: 'Rina Wijaya' });
+    expect(st.decisionComment).toBeUndefined();
     const a = await prisma.roleAssignment.findFirstOrThrow({ where: { userId } });
     expect(a.authorisedById).toBe(f.manager.userId);
     expect(await prisma.auditLog.count({ where: { action: 'registration.approve', actorId: f.manager.userId } })).toBe(1);
@@ -167,6 +168,11 @@ describe('registrations', () => {
     const again = await submitRegistration(input());
     expect(again.userId).toBe(userId);
     expect((await getRegistrationStatus(again.applicationId)).assignmentStatus).toBe('PENDING');
+    // the applicant sees the decision comment of a rejection, but no user id (they cannot sign in)
+    const rejected = await getRegistrationStatus(applicationId);
+    expect(rejected).toMatchObject({ status: 'REJECTED', decisionComment: 'Incomplete records' });
+    expect(rejected.userId).toBeUndefined();
+    expect((await getRegistrationStatus(again.applicationId)).userId).toBeUndefined();
   });
 
   it('only manager can decide', async () => {

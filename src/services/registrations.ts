@@ -11,7 +11,7 @@ import { parseInput } from './context';
 import { parseJsonRecord } from './dto';
 import type { LoginOption, RegistrationDetail, RegistrationStatusInfo, RegistrationSummary } from './dtoAdmin';
 import { notify } from './notifications';
-import { deleteApplicationFiles, saveControlDocument } from './storage';
+import { deleteApplicationFiles, readControlDocument, saveControlDocument } from './storage';
 
 const text = (what: string, max = 200) =>
   z.string({ error: `${what} is required` }).trim().min(1, `${what} is required`).max(max);
@@ -260,6 +260,26 @@ export async function getRegistration(actor: Actor, id: string): Promise<Registr
   return loadDetail(prisma, id);
 }
 
+/** One uploaded control document (slot 1..7) of an application, for the manager's review. */
+export async function getRegistrationFile(
+  actor: Actor,
+  id: string,
+  slot: string,
+): Promise<{ fileName: string; bytes: Uint8Array }> {
+  assertCan(actor, 'registration.decide');
+  const n = /^\d+$/.test(slot) ? Number(slot) : NaN;
+  if (!Number.isInteger(n) || n < 1 || n > REQUIRED_CONTROL_DOCUMENTS.length) {
+    throw new DomainError('VALIDATION', `Unknown document slot ${slot}`);
+  }
+  const doc = await prisma.controlDocument.findFirst({ where: { applicationId: String(id ?? ''), slot: n } });
+  if (!doc) throw new DomainError('NOT_FOUND', 'Document not found');
+  try {
+    return { fileName: doc.fileName, bytes: await readControlDocument(doc.storagePath) };
+  } catch {
+    throw new DomainError('NOT_FOUND', 'Document not found');
+  }
+}
+
 const decideSchema = z.object({
   decision: z.enum(['APPROVE', 'REJECT'], { error: 'Decision must be APPROVE or REJECT' }),
   comment: z.string().trim().max(2000).optional(),
@@ -356,6 +376,9 @@ export async function getRegistrationStatus(applicationId: string): Promise<Regi
     ...(assignment?.authorisedFrom ? { authorisedFrom: assignment.authorisedFrom.toISOString() } : {}),
     ...(assignment?.authorisedUntil ? { authorisedUntil: assignment.authorisedUntil.toISOString() } : {}),
     ...(authoriser ? { authorisedBy: authoriser.name } : {}),
+    applicantName: parseJsonRecord<string>(app.personalJson).fullName ?? undefined,
+    ...(app.status === 'APPROVED' ? { userId: app.userId } : {}),
+    ...(app.status === 'REJECTED' && app.decisionComment ? { decisionComment: app.decisionComment } : {}),
   };
 }
 

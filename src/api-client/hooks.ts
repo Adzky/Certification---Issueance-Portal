@@ -14,11 +14,14 @@ import type {
   LoginBody,
   MarkNotificationsReadBody,
   RegistrationListQuery,
+  RegistrationPayload,
+  DecisionBody,
+  UpdateAssignmentBody,
   ReturnBody,
   SignResult,
   VerifyBody,
 } from '@/contract/types';
-import { api, ApiError } from './client';
+import { api, ApiError, type RegistrationFiles } from './client';
 
 export const queryKeys = {
   session: ['session'] as const,
@@ -33,6 +36,9 @@ export const queryKeys = {
   certificate: (id: string) => ['certificates', 'detail', id] as const,
   registrations: (q?: RegistrationListQuery) => (q ? (['registrations', q] as const) : (['registrations'] as const)),
   users: ['users'] as const,
+  publicScopes: ['publicScopes'] as const,
+  registration: (id: string) => ['registrations', 'detail', id] as const,
+  registrationStatus: (id: string) => ['registrationStatus', id] as const,
   dashboard: (periodDays?: number) => ['dashboard', periodDays ?? null] as const,
   audit: (q?: AuditListQuery) => (q ? (['audit', q] as const) : (['audit'] as const)),
   notifications: ['notifications'] as const,
@@ -88,6 +94,46 @@ export const useNotifications = () =>
 export const useRegistrations = (q: RegistrationListQuery = {}) =>
   useQuery({ queryKey: queryKeys.registrations(q), queryFn: () => api.registrations.list(q) });
 export const useUsers = () => useQuery({ queryKey: queryKeys.users, queryFn: api.users.list });
+export const usePublicScopes = () =>
+  useQuery({ queryKey: queryKeys.publicScopes, queryFn: api.publicScopes, staleTime: 5 * 60_000 });
+export const useRegistration = (id: string | null | undefined) =>
+  useQuery({ queryKey: queryKeys.registration(id ?? ''), queryFn: () => api.registrations.get(id!), enabled: !!id });
+
+/** Public onboarding status of an application; polls every 5 s until it is decided. */
+export const useRegistrationStatus = (id: string | null | undefined) =>
+  useQuery({
+    queryKey: queryKeys.registrationStatus(id ?? ''),
+    queryFn: () => api.registrations.status(id!),
+    enabled: !!id,
+    retry: false,
+    refetchInterval: (query) => (query.state.data?.status === 'PENDING' ? 5_000 : false),
+  });
+
+/** Public multipart submit (onboarding step 3). */
+export const useSubmitRegistration = () =>
+  useMutation({
+    mutationFn: ({ payload, files }: { payload: RegistrationPayload; files: RegistrationFiles }) =>
+      api.registrations.submit(payload, files),
+  });
+
+/** Approve / reject an application; refreshes registrations, notifications, users and audit. */
+export function useDecideRegistration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DecisionBody }) => api.registrations.decide(id, body),
+    onSettled: () =>
+      Promise.all(['registrations', 'registrationStatus', 'notifications', 'users', 'audit', 'loginOptions'].map((key) => qc.invalidateQueries({ queryKey: [key] }))),
+  });
+}
+
+/** Admin: change an assignment's status and/or scopes. */
+export function useUpdateAssignment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateAssignmentBody }) => api.users.updateAssignment(id, body),
+    onSettled: () => Promise.all(['users', 'audit', 'dashboard', 'loginOptions'].map((key) => qc.invalidateQueries({ queryKey: [key] }))),
+  });
+}
 
 /** Creates an issuance request; refreshes request lists, dashboards and audit. */
 export function useCreateRequest() {

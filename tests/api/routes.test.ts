@@ -19,6 +19,8 @@ import * as publicCertRoute from '@app/api/public/certificates/[number]/route';
 import * as sessionRoute from '@app/api/session/route';
 import * as loginOptionsRoute from '@app/api/login-options/route';
 import * as registrationsRoute from '@app/api/registrations/route';
+import * as publicScopesRoute from '@app/api/public/scopes/route';
+import * as registrationFileRoute from '@app/api/registrations/[id]/files/[slot]/route';
 import * as notificationsRoute from '@app/api/notifications/route';
 import * as notificationsReadRoute from '@app/api/notifications/read/route';
 import * as dashboardRoute from '@app/api/dashboard/route';
@@ -324,6 +326,40 @@ describe('registrations (multipart) and notifications', () => {
       include: { documents: true },
     });
     expect(app.documents).toHaveLength(7);
+  });
+
+  it('GET /api/public/scopes lists the service scopes without a session', async () => {
+    const r = await call(publicScopesRoute.GET, { path: '/api/public/scopes' });
+    expect(r.status).toBe(200);
+    expect(r.json.map((s: { code: string }) => s.code)).toEqual(['CDKAB', 'CE', 'INS', 'ISMS', 'QMS']);
+    expect(Object.keys(r.json[0]).sort()).toEqual(['category', 'code', 'name']);
+  });
+
+  it('GET /api/registrations/:id/files/:slot streams the PDF to a manager only', async () => {
+    const sub = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', form: form() });
+    const id = sub.json.applicationId as string;
+    const get = (cookie: string | undefined, slot: string) =>
+      registrationFileRoute.GET(
+        new Request(`http://localhost/api/registrations/${id}/files/${slot}`, { headers: cookie ? { cookie } : {} }),
+        { params: Promise.resolve({ id, slot }) },
+      );
+    const manager = await sessionCookie(f.manager.userId, f.manager.role);
+
+    const ok = await get(manager, '2');
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get('content-type')).toBe('application/pdf');
+    expect(ok.headers.get('content-disposition')).toMatch(/^inline/);
+    expect(new TextDecoder().decode(new Uint8Array(await ok.arrayBuffer()).slice(0, 5))).toBe('%PDF-');
+
+    expect((await get(await sessionCookie(f.officer.userId, f.officer.role), '2')).status).toBe(403);
+    expect((await get(undefined, '2')).status).toBe(401);
+    expect((await get(manager, '0')).status).toBe(400);
+    expect((await get(manager, 'abc')).status).toBe(400);
+    expect((await get(manager, '8')).status).toBe(400);
+    const missing = await registrationFileRoute.GET(new Request('http://localhost/x', { headers: { cookie: manager } }), {
+      params: Promise.resolve({ id: 'nope', slot: '1' }),
+    });
+    expect(missing.status).toBe(404);
   });
 
   it('POST /api/registrations with a missing file or payload is 400', async () => {

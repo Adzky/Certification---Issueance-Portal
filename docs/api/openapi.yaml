@@ -503,6 +503,24 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/registrations/{id}/files/{slot}:
+    parameters:
+      - { $ref: '#/components/parameters/Id' }
+      - { name: slot, in: path, required: true, schema: { type: integer, minimum: 1, maximum: 7 }, description: Control-document slot }
+    get:
+      tags: [registrations]
+      operationId: getRegistrationFile
+      summary: An uploaded control document as an inline PDF (registration.decide)
+      responses:
+        '200':
+          description: PDF document
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+        '400': { $ref: '#/components/responses/Validation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/registrations/{id}/decision:
     parameters: [{ $ref: '#/components/parameters/Id' }]
     post:
@@ -534,6 +552,19 @@ paths:
           description: Status
           content: { application/json: { schema: { $ref: '#/components/schemas/RegistrationStatusInfo' } } }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/public/scopes:
+    get:
+      tags: [registrations]
+      operationId: listPublicScopes
+      summary: Service scopes for the onboarding form
+      security: []
+      responses:
+        '200':
+          description: Scopes ordered by code
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/PublicScope' } }
 
   /api/users:
     get:
@@ -1125,6 +1156,16 @@ components:
         authorisedFrom: { $ref: '#/components/schemas/DateTime' }
         authorisedUntil: { $ref: '#/components/schemas/DateTime' }
         authorisedBy: { type: string }
+        applicantName: { type: string }
+        userId: { type: string, description: Present only once APPROVED }
+        decisionComment: { type: string, description: Present only when REJECTED }
+    PublicScope:
+      type: object
+      required: [code, name, category]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
     DecisionBody:
       type: object
       required: [decision]

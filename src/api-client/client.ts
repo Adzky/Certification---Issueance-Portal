@@ -23,6 +23,7 @@ import type {
   Page,
   PermissionsMatrix,
   PublicCertificate,
+  PublicScope,
   ReferenceData,
   RegistrationDetail,
   RegistrationListQuery,
@@ -110,6 +111,7 @@ export const api = {
     logout: () => call<{ ok: true }>('DELETE', '/api/session'),
   },
   reference: () => get<ReferenceData>('/api/reference'),
+  publicScopes: () => get<PublicScope[]>('/api/public/scopes'),
   permissions: () => get<PermissionsMatrix>('/api/permissions'),
   requests: {
     list: (q: ListQuery = {}) => get<RequestPage>('/api/requests', q as Query),
@@ -149,6 +151,8 @@ export const api = {
     },
     list: (q: RegistrationListQuery = {}) => get<RegistrationSummary[]>('/api/registrations', q as Query),
     get: (id: string) => get<RegistrationDetail>(`/api/registrations/${seg(id)}`),
+    /** Inline PDF of one control document (slot 1..7), for links and iframes. */
+    fileUrl: (id: string, slot: number) => `${API_BASE_URL}/api/registrations/${seg(id)}/files/${slot}`,
     decide: (id: string, body: DecisionBody) => post<RegistrationDetail>(`/api/registrations/${seg(id)}/decision`, body),
     status: (id: string) => get<RegistrationStatusInfo>(`/api/public/registrations/${seg(id)}/status`),
   },
