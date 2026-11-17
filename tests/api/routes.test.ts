@@ -7,10 +7,12 @@ import { parse as parseYaml } from 'yaml';
 import { prisma } from '@/repositories/prisma';
 import { DomainError } from '@/domain/errors';
 import { ROLE_ACTIONS } from '@/domain/permissions';
-import { REQUIRED_CONTROL_DOCUMENTS } from '@/domain/registration';
+import { MAX_UPLOAD_BYTES, REQUIRED_CONTROL_DOCUMENTS } from '@/domain/registration';
 import { withActor } from '@/server/handler';
 import { createRequest } from '@/services/requests';
 import { prepareDocument } from '@/services/documents';
+import { slotLabel } from '@/services/registrations';
+import { readSession, sealSession } from '@/server/session';
 import * as requestsRoute from '@app/api/requests/route';
 import * as signRoute from '@app/api/documents/[id]/sign/route';
 import * as publicCertRoute from '@app/api/public/certificates/[number]/route';
@@ -242,6 +244,21 @@ describe('session', () => {
     expect(me.json.permissions).toEqual([]);
   });
 
+  it('an empty SESSION_SECRET falls back to the demo secret and warns once in production', async () => {
+    vi.stubEnv('SESSION_SECRET', '');
+    vi.stubEnv('NODE_ENV', 'production');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const cookie = `jmu_session=${await sealSession({ userId: 'u1', role: 'ISSUANCE_OFFICER' })}`;
+      vi.stubEnv('SESSION_SECRET', undefined);
+      expect(await readSession(new Request('http://localhost/', { headers: { cookie } }))).toEqual({ userId: 'u1', role: 'ISSUANCE_OFFICER' });
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('DELETE clears the cookie', async () => {
     const r = await call(sessionRoute.DELETE, {
       method: 'DELETE',
@@ -315,6 +332,65 @@ describe('registrations (multipart) and notifications', () => {
     fd.set('payload', '{oops');
     const bad = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', form: fd });
     expect(bad.status).toBe(400);
+  });
+
+  it('POST /api/registrations rejects an oversized file before storing anything (400)', async () => {
+    const fd = form();
+    const big = new Uint8Array(MAX_UPLOAD_BYTES + 1);
+    big.set(new TextEncoder().encode('%PDF-1.4\n'));
+    fd.set('file3', new File([big], 'big.pdf', { type: 'application/pdf' }));
+    const r = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', form: fd });
+    expect(r.status).toBe(400);
+    expect(r.json.error).toEqual({ code: 'VALIDATION', message: `${slotLabel(3)}: file exceeds the 10 MB limit` });
+    expect(await prisma.registrationApplication.count()).toBe(0);
+  });
+
+  it('POST /api/registrations rejects a declared Content-Length over the request bound (400)', async () => {
+    const req = new Request('http://localhost/api/registrations', {
+      method: 'POST',
+      headers: { 'content-type': 'multipart/form-data; boundary=x', 'content-length': String(8 * MAX_UPLOAD_BYTES) },
+      body: '--x--\r\n',
+    });
+    const res = await registrationsRoute.POST(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(/request limit/);
+  });
+
+  it('POST /api/registrations counts streamed bytes when Content-Length is missing (400)', async () => {
+    const chunk = new Uint8Array(1024 * 1024);
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent++ >= 8 * 10 + 2) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const req = new Request('http://localhost/api/registrations', {
+      method: 'POST',
+      headers: { 'content-type': 'multipart/form-data; boundary=x' },
+      body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+    expect(req.headers.get('content-length')).toBeNull();
+    const res = await registrationsRoute.POST(req);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toMatch(/request limit/);
+    expect(sent).toBeLessThan(8 * 10 + 2); // stopped reading early
+  });
+
+  it('POST /api/registrations rejects unexpected or repeated form parts and non-multipart bodies (400)', async () => {
+    const extra = form();
+    extra.set('file8', new File([new TextEncoder().encode('%PDF-1.4')], 'x.pdf'));
+    const r1 = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', form: extra });
+    expect(r1.status).toBe(400);
+    expect(r1.json.error.message).toBe('Unexpected form field file8');
+    const dup = form();
+    dup.append('file1', new File([new TextEncoder().encode('%PDF-1.4')], 'again.pdf'));
+    const r2 = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', form: dup });
+    expect(r2.status).toBe(400);
+    const r3 = await call(registrationsRoute.POST, { method: 'POST', path: '/api/registrations', body: payload });
+    expect(r3.status).toBe(400);
+    expect(r3.json.error.message).toBe('Expected a multipart/form-data body');
   });
 
   it('notifications: lists those for the user or role and marks them read', async () => {

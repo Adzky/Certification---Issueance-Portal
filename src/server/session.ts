@@ -20,10 +20,22 @@ const DEMO_SESSION_SECRET = 'jmu-demo-session-secret-do-not-use-in-production-00
 
 const TTL_SECONDS = 60 * 60 * 12;
 
+let warnedDemoSecret = false;
+
+function sessionPassword(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production' && !warnedDemoSecret) {
+    warnedDemoSecret = true;
+    console.warn('SESSION_SECRET is not set: using the built-in demo session secret. Set SESSION_SECRET (32+ chars).');
+  }
+  return DEMO_SESSION_SECRET;
+}
+
 function options(): SessionOptions {
   return {
     cookieName: SESSION_COOKIE,
-    password: process.env.SESSION_SECRET ?? DEMO_SESSION_SECRET,
+    password: sessionPassword(),
     ttl: TTL_SECONDS,
     cookieOptions: {
       httpOnly: true,

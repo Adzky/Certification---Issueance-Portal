@@ -457,6 +457,10 @@ paths:
       tags: [registrations]
       operationId: submitRegistration
       summary: Public onboarding submit with the seven control-document PDFs (max 10 MB each)
+      description: |
+        The whole body is bounded to 7 x 10 MB + 1 MB (declared Content-Length and
+        streamed bytes are both checked) and rejected with 400 VALIDATION when larger.
+        Only the parts `payload` and `file1`..`file7` are accepted, each at most once.
       security: []
       requestBody:
         required: true

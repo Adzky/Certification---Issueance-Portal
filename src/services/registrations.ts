@@ -69,7 +69,7 @@ export interface SubmitRegistrationInput {
   files: RegistrationFileInput[];
 }
 
-const slotLabel = (slot: number) => `Slot ${slot} (${REQUIRED_CONTROL_DOCUMENTS[slot - 1]})`;
+export const slotLabel = (slot: number): string => `Slot ${slot} (${REQUIRED_CONTROL_DOCUMENTS[slot - 1]})`;
 
 /** Validates every slot before anything is written anywhere. */
 function validateFiles(files: unknown): RegistrationFileInput[] {

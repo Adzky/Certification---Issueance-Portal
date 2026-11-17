@@ -19,7 +19,7 @@ describe('proxy (portal auth guard)', () => {
 
   it('redirects unauthenticated portal access to /login', async () => {
     const res = await proxy(req('/dashboard'));
-    expect(res.status).toBeGreaterThanOrEqual(307);
+    expect(res.status).toBe(307);
     expect(new URL(res.headers.get('location')!).pathname).toBe('/login');
   });
 
