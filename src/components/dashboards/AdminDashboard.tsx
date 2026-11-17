@@ -3,6 +3,7 @@
 import { CheckCircle2, Circle, XCircle } from 'lucide-react';
 import type { DashboardData } from '@/contract/types';
 import { EmptyState } from '@/components/common/EmptyState';
+import { humaniseActivity } from '@/lib/auditLabels';
 import { formatDateTime } from '@/lib/format';
 import { Panel, StatRow } from './shared';
 
@@ -20,7 +21,7 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
               <li key={`${a.at}-${i}`} className="flex items-center gap-4 py-2.5 text-sm">
                 <Circle className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="w-36 shrink-0 text-muted-foreground">{formatDateTime(a.at)}</span>
-                <span className="min-w-0 flex-1 truncate">{a.text}</span>
+                <span className="min-w-0 flex-1 truncate">{humaniseActivity(a.text)}</span>
                 {a.ok ? (
                   <CheckCircle2 className="size-5 shrink-0 text-tone-green" aria-label="Completed" />
                 ) : (

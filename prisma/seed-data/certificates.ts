@@ -57,6 +57,9 @@ interface Item {
   objectScope: string;
 }
 
+/** Share of history requests issued after their due date (keeps the seeded SLA just above the 90% target). */
+const LATE_SHARE = 0.041;
+
 const eligible = (pool: PoolUser[], role: Role, scope: string) =>
   pool.filter((u) => u.role === role && u.scopes.includes(scope));
 
@@ -95,7 +98,7 @@ export function buildHistory(
     else if (phase === 'expired') validUntil = nowMs - rng.between(2, term === 12 ? 300 : 150) * DAY;
     else validUntil = nowMs + rng.between(32, term * 30 - 62) * DAY;
     const priority = rng.weighted({ NORMAL: 65, HIGH: 15, LOW: 20 });
-    const span = slaSpanMs(priority, rng.chance(0.12), rng);
+    const span = slaSpanMs(priority, rng.chance(LATE_SHARE), rng);
     let issue: number;
     if (recent) issue = nowMs - rng.between(0.3, Math.max(0.6, 59.5 - span / DAY)) * DAY;
     else {

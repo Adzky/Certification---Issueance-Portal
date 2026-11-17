@@ -43,9 +43,11 @@ export function spreadTimes(start: number, end: number, n: number, rng: Rng): nu
 
 /**
  * Calendar time between a request being created and its certificate being issued.
- * On-time requests finish inside the working-day SLA; late ones overrun it.
+ * On-time requests finish well inside the working-day SLA (counted in calendar days, so a
+ * weekend inside the window cannot push them over the due date); late ones overrun it.
  */
 export function slaSpanMs(priority: Priority, late: boolean, rng: Rng): number {
-  const calendarDays = (SLA_WORKING_DAYS[priority] * 7) / 5;
-  return Math.round(calendarDays * (late ? rng.between(1.2, 1.8) : rng.between(0.4, 0.92)) * DAY);
+  const workingDays = SLA_WORKING_DAYS[priority];
+  const days = late ? ((workingDays * 7) / 5) * rng.between(1.2, 1.8) : workingDays * rng.between(0.4, 0.92);
+  return Math.round(days * DAY);
 }

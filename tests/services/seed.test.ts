@@ -130,6 +130,13 @@ describe('seed', () => {
     expect(flagged).toBeGreaterThanOrEqual(3);
   });
 
+  it('manager dashboard SLA over the trend window meets the 90% target on a fresh seed', async () => {
+    const manager = await actorFor(DEMO[3].email, 'ISSUANCE_MANAGER');
+    const dash = await getDashboard(manager, NOW);
+    expect(dash.sla?.achievedPct).toBeGreaterThanOrEqual(90);
+    expect(dash.sla?.achievedPct).toBeLessThanOrEqual(95);
+  });
+
   it('every demo role has work on first login', async () => {
     for (const d of DEMO) {
       const dash = await getDashboard(await actorFor(d.email, d.role), NOW);

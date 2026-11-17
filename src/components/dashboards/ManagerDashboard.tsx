@@ -2,6 +2,8 @@
 
 import { CalendarDays } from 'lucide-react';
 import { useDashboard } from '@/api-client/hooks';
+import { EmptyState } from '@/components/common/EmptyState';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Panel, QueueTable, StatRow, clientColumn, noColumn, numberColumn, serviceColumn, slaColumn, statusColumn, DashboardSkeleton } from './shared';
 import { SlaGauge } from './SlaGauge';
@@ -37,7 +39,15 @@ export function PeriodSelector({ value, onChange }: { value: PeriodDays; onChang
 }
 
 export function ManagerDashboard({ periodDays }: { periodDays: PeriodDays }) {
-  const { data } = useDashboard(periodDays);
+  const { data, isError, refetch } = useDashboard(periodDays);
+  if (isError && !data)
+    return (
+      <EmptyState
+        title="Dashboard could not be loaded"
+        description="Something went wrong while loading your dashboard."
+        action={<Button onClick={() => void refetch()}>Try again</Button>}
+      />
+    );
   if (!data) return <DashboardSkeleton />;
   return (
     <div className="space-y-4">

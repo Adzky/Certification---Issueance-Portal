@@ -12,9 +12,9 @@ import { useListParams } from '@/components/common/useListParams';
 import { Button } from '@/components/ui/button';
 import { isPathAllowed } from '@/domain/nav';
 import type { Role } from '@/domain/types';
+import { actionLabel } from '@/lib/auditLabels';
 import { formatDateTime } from '@/lib/format';
 import { ROLE_META } from '@/lib/roles';
-import { statusLabel } from '@/lib/status';
 
 const ENTITY_OPTIONS = [
   { value: 'REQUEST', label: 'Request' },
@@ -24,25 +24,6 @@ const ENTITY_OPTIONS = [
   { value: 'USER', label: 'User' },
 ];
 const FILTERS: FilterDef[] = [{ key: 'entityType', label: 'Entity Type', allLabel: 'All Entities', options: ENTITY_OPTIONS }];
-
-const ACTION_LABEL: Record<string, string> = {
-  'request.create': 'Request created',
-  'document.prepare': 'Draft prepared',
-  'document.edit': 'Draft edited',
-  'document.submit': 'Submitted for verification',
-  'document.verify': 'Verified',
-  'document.return': 'Returned for revision',
-  'document.sign': 'Signed',
-  'document.reject': 'Rejected',
-  'certificate.issue': 'Certificate issued',
-  'certificate.suspend': 'Certificate suspended',
-  'certificate.reinstate': 'Certificate reinstated',
-  'certificate.revoke': 'Certificate revoked',
-  'registration.submit': 'Registration submitted',
-  'registration.decide': 'Registration decided',
-  'user.updateAssignment': 'Authorisation updated',
-};
-const actionLabel = (a: string) => ACTION_LABEL[a] ?? statusLabel(a.replace(/\./g, '_'));
 
 /** Where an audit entry's entity can be opened for this role, or null when no page the role may open shows it. */
 export function entityHref(role: Role | undefined, e: Pick<AuditEntry, 'entityType' | 'entityId'>): string | null {
