@@ -15,7 +15,9 @@
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:e2e": "node node_modules/@playwright/test/cli.js test",
     "e2e:install": "node node_modules/@playwright/test/cli.js install chromium",
-    "db:reset": "node scripts/reset-db.mjs"
+    "db:reset": "node scripts/reset-db.mjs",
+    "db:migrate:turso": "node node_modules/tsx/dist/cli.mjs scripts/migrate-turso.mjs",
+    "db:seed:demo": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1171.0",
