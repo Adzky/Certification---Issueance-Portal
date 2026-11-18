@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { assertCan, can, ROLE_LABEL, ROLES } from '@/domain/permissions';
 import type { Actor, AuthorisationStatus } from '@/domain/types';
 
@@ -36,6 +36,42 @@ describe('can', () => {
   });
   it('scope is optional', () => {
     expect(can(actor({ role: 'SYSTEM_ADMIN' }), 'user.manage')).toBe(true);
+  });
+
+  it('rejects actions before the authorisation start bound', () => {
+    const now = new Date('2030-01-01T00:00:00.000Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    try {
+      const future = Object.assign(actor(), { authorisedFrom: new Date(now.getTime() + 1) });
+      expect(can(future, 'request.create', 'QMS')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects actions after the authorisation end bound', () => {
+    const now = new Date('2030-01-01T00:00:00.000Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    try {
+      const expired = Object.assign(actor(), { authorisedUntil: new Date(now.getTime() - 1) });
+      expect(can(expired, 'request.create', 'QMS')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('allows actions at inclusive authorisation bounds', () => {
+    const now = new Date('2030-01-01T00:00:00.000Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    try {
+      const atBounds = Object.assign(actor(), { authorisedFrom: now, authorisedUntil: now });
+      expect(can(atBounds, 'request.create', 'QMS')).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

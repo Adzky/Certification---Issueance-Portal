@@ -31,9 +31,19 @@ export const ROLE_ACTIONS: Record<Role, readonly Action[]> = {
   SYSTEM_ADMIN: ['user.manage', 'records.viewAll'],
 };
 
+export function isAssignmentCurrentlyUsable(
+  actor: Pick<Actor, 'assignmentStatus' | 'authorisedFrom' | 'authorisedUntil'>,
+  now: Date = new Date(),
+): boolean {
+  if (actor.assignmentStatus !== 'ACTIVE' && actor.assignmentStatus !== 'RESTRICTED') return false;
+  if (actor.authorisedFrom && actor.authorisedFrom.getTime() > now.getTime()) return false;
+  if (actor.authorisedUntil && actor.authorisedUntil.getTime() < now.getTime()) return false;
+  return true;
+}
+
 export function can(actor: Actor, action: Action, scopeCode?: string): boolean {
   if (!ROLE_ACTIONS[actor.role].includes(action)) return false;
-  if (actor.assignmentStatus !== 'ACTIVE' && actor.assignmentStatus !== 'RESTRICTED') return false;
+  if (!isAssignmentCurrentlyUsable(actor)) return false;
   return scopeCode === undefined || actor.scopeCodes.includes(scopeCode);
 }
 

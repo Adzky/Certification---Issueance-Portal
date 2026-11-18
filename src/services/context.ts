@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DomainError } from '@/domain/errors';
-import { can } from '@/domain/permissions';
+import { can, isAssignmentCurrentlyUsable } from '@/domain/permissions';
 import type { Action, Actor } from '@/domain/types';
 import type { ListQuery } from '@/contract/types';
 
@@ -25,6 +25,7 @@ export const canViewAll = (actor: Actor): boolean => can(actor, 'records.viewAll
 
 /** Scope codes the actor may read, or `null` when unrestricted. */
 export function readableScopes(actor: Actor): string[] | null {
+  if (!isAssignmentCurrentlyUsable(actor)) return [];
   return canViewAll(actor) ? null : actor.scopeCodes;
 }
 

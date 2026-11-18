@@ -12,7 +12,14 @@ export type Action =
   | 'document.verify' | 'document.return' | 'document.sign' | 'document.reject'
   | 'certificate.suspend' | 'certificate.reinstate' | 'certificate.revoke'
   | 'registration.decide' | 'user.manage' | 'records.viewAll';
-export interface Actor { userId: string; role: Role; assignmentStatus: AuthorisationStatus; scopeCodes: string[] }
+export interface Actor {
+  userId: string;
+  role: Role;
+  assignmentStatus: AuthorisationStatus;
+  scopeCodes: string[];
+  authorisedFrom?: Date;
+  authorisedUntil?: Date;
+}
 export interface WorkflowState { request: RequestStatus; document: DocumentStatus | null }
 export type WorkflowEvent = 'PREPARE' | 'SUBMIT' | 'APPROVE' | 'RETURN' | 'SIGN' | 'REJECT';
 export interface TransitionResult extends WorkflowState { effects: { createDraft?: true; bumpVersion?: true; issueCertificate?: true } }
