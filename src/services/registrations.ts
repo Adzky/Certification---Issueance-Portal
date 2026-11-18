@@ -385,8 +385,15 @@ export async function getRegistrationStatus(applicationId: string): Promise<Regi
 // ---------- login ----------
 
 export async function listLoginOptions(): Promise<LoginOption[]> {
+  const now = new Date();
   const rows = await prisma.roleAssignment.findMany({
-    where: { status: { in: ['ACTIVE', 'RESTRICTED'] } },
+    where: {
+      status: { in: ['ACTIVE', 'RESTRICTED'] },
+      AND: [
+        { OR: [{ authorisedFrom: null }, { authorisedFrom: { lte: now } }] },
+        { OR: [{ authorisedUntil: null }, { authorisedUntil: { gte: now } }] },
+      ],
+    },
     include: { user: { select: { id: true, name: true, avatarUrl: true } } },
   });
   return ROLES.map((role) => ({
@@ -415,5 +422,7 @@ export async function loadActor(userId: string, role: Role): Promise<Actor | nul
     role,
     assignmentStatus: a.status as AuthorisationStatus,
     scopeCodes: a.scopes.map((s) => s.scopeCode).sort(),
+    ...(a.authorisedFrom ? { authorisedFrom: a.authorisedFrom } : {}),
+    ...(a.authorisedUntil ? { authorisedUntil: a.authorisedUntil } : {}),
   };
 }

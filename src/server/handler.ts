@@ -4,6 +4,7 @@
  */
 import { ZodError } from 'zod';
 import { DomainError, type ErrorCode } from '@/domain/errors';
+import { isAssignmentCurrentlyUsable } from '@/domain/permissions';
 import type { Actor } from '@/domain/types';
 import type { ApiErrorCode, ErrorBody } from '@/contract/types';
 import { loadActor } from '@/services/registrations';
@@ -63,7 +64,8 @@ export const created = (body: object): Response => Response.json(body, { status:
 /** Loads the session's actor, or null when there is no valid session / assignment. */
 export async function currentActor(req: Request): Promise<Actor | null> {
   const session = await readSession(req);
-  return session ? loadActor(session.userId, session.role) : null;
+  const actor = session ? await loadActor(session.userId, session.role) : null;
+  return actor && isAssignmentCurrentlyUsable(actor) ? actor : null;
 }
 
 export function withActor<P = Record<string, string>>(

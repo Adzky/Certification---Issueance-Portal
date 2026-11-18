@@ -147,6 +147,23 @@ describe('registrations', () => {
     await expectCode(decideRegistration(f.manager, applicationId, { decision: 'REJECT', comment: 'x' }), 'CONFLICT');
   });
 
+  it('omits expired assignments from login while loadActor retains their details', async () => {
+    const authorisedFrom = new Date('2020-01-01T00:00:00.000Z');
+    const authorisedUntil = new Date('2020-01-02T00:00:00.000Z');
+    await prisma.roleAssignment.update({
+      where: { userId_role: { userId: f.officer.userId, role: f.officer.role } },
+      data: { authorisedFrom, authorisedUntil },
+    });
+
+    const loginUsers = (await listLoginOptions()).flatMap((option) => option.users);
+    expect(loginUsers.some((user) => user.userId === f.officer.userId)).toBe(false);
+    expect(await loadActor(f.officer.userId, f.officer.role)).toMatchObject({
+      assignmentStatus: 'ACTIVE',
+      authorisedFrom,
+      authorisedUntil,
+    });
+  });
+
   it('registration with existing email adds a role to that user', async () => {
     const { userId } = await submitRegistration(input({ email: 'officer@test.local', role: 'DOCUMENT_VERIFIER' }));
     expect(userId).toBe(f.officer.userId);

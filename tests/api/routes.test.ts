@@ -68,6 +68,34 @@ describe('REST API', () => {
     expect(r.status).toBe(401);
   });
 
+  it('an expired assignment cannot use an existing session', async () => {
+    await prisma.roleAssignment.update({
+      where: { userId_role: { userId: f.officer.userId, role: f.officer.role } },
+      data: { authorisedUntil: new Date(Date.now() - 1) },
+    });
+
+    const r = await call(requestsRoute.GET, {
+      path: '/api/requests',
+      cookie: await sessionCookie(f.officer.userId, f.officer.role),
+    });
+    expect(r.status).toBe(401);
+    expect(r.json.error.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('a suspended assignment cannot use an existing session', async () => {
+    await prisma.roleAssignment.update({
+      where: { userId_role: { userId: f.officer.userId, role: f.officer.role } },
+      data: { status: 'SUSPENDED' },
+    });
+
+    const r = await call(requestsRoute.GET, {
+      path: '/api/requests',
+      cookie: await sessionCookie(f.officer.userId, f.officer.role),
+    });
+    expect(r.status).toBe(401);
+    expect(r.json.error.code).toBe('UNAUTHENTICATED');
+  });
+
   it('a tampered cookie is 401', async () => {
     const r = await call(requestsRoute.GET, { path: '/api/requests', cookie: 'jmu_session=Fe26.2*garbage' });
     expect(r.status).toBe(401);
@@ -238,12 +266,41 @@ describe('session', () => {
     expect(r.status).toBe(400);
   });
 
+  it('POST refuses an expired assignment without setting a session cookie', async () => {
+    await prisma.roleAssignment.update({
+      where: { userId_role: { userId: f.officer.userId, role: f.officer.role } },
+      data: { authorisedUntil: new Date(Date.now() - 1) },
+    });
+
+    const r = await call(sessionRoute.POST, {
+      method: 'POST',
+      path: '/api/session',
+      body: { userId: f.officer.userId, role: f.officer.role },
+    });
+    expect(r.status).toBe(403);
+    expect(r.json.error.code).toBe('FORBIDDEN');
+    expect(r.headers.get('set-cookie')).toBeNull();
+  });
+
   it('GET reports no permissions when the assignment was suspended after login', async () => {
     const cookie = await sessionCookie(f.officer.userId, f.officer.role);
     await prisma.roleAssignment.updateMany({ where: { userId: f.officer.userId }, data: { status: 'SUSPENDED' } });
     const me = await call(sessionRoute.GET, { path: '/api/session', cookie });
     expect(me.status).toBe(200);
     expect(me.json.assignmentStatus).toBe('SUSPENDED');
+    expect(me.json.permissions).toEqual([]);
+  });
+
+  it('GET reports no permissions when the assignment expired after login', async () => {
+    const cookie = await sessionCookie(f.officer.userId, f.officer.role);
+    await prisma.roleAssignment.updateMany({
+      where: { userId: f.officer.userId, role: f.officer.role },
+      data: { authorisedUntil: new Date(Date.now() - 1) },
+    });
+
+    const me = await call(sessionRoute.GET, { path: '/api/session', cookie });
+    expect(me.status).toBe(200);
+    expect(me.json.assignmentStatus).toBe('ACTIVE');
     expect(me.json.permissions).toEqual([]);
   });
 

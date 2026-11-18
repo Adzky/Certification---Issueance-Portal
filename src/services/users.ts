@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/repositories/prisma';
 import { DomainError } from '@/domain/errors';
-import { assertCan, ROLE_ACTIONS, ROLES } from '@/domain/permissions';
+import { assertCan, isAssignmentCurrentlyUsable, ROLE_ACTIONS, ROLES } from '@/domain/permissions';
 import type { Actor, AuthorisationStatus, Role } from '@/domain/types';
 import { recordAudit } from './audit';
 import { parseInput } from './context';
@@ -95,12 +95,24 @@ export async function updateAssignment(
 
 /** The signed-in view for GET /api/session. Permissions are empty unless the assignment is usable. */
 export async function getSessionInfo(actor: Actor): Promise<SessionInfo> {
+  const now = new Date();
   const u = await prisma.user.findUnique({
     where: { id: actor.userId },
-    include: { roleAssignments: { where: { status: { in: ['ACTIVE', 'RESTRICTED'] } }, select: { role: true } } },
+    include: {
+      roleAssignments: {
+        where: {
+          status: { in: ['ACTIVE', 'RESTRICTED'] },
+          AND: [
+            { OR: [{ authorisedFrom: null }, { authorisedFrom: { lte: now } }] },
+            { OR: [{ authorisedUntil: null }, { authorisedUntil: { gte: now } }] },
+          ],
+        },
+        select: { role: true },
+      },
+    },
   });
   if (!u) throw new DomainError('UNAUTHENTICATED', 'Sign in required');
-  const usable = actor.assignmentStatus === 'ACTIVE' || actor.assignmentStatus === 'RESTRICTED';
+  const usable = isAssignmentCurrentlyUsable(actor, now);
   const roles = new Set(u.roleAssignments.map((a) => a.role));
   return {
     user: { id: u.id, name: u.name, email: u.email, avatarUrl: u.avatarUrl, position: u.position, unit: u.unit },
