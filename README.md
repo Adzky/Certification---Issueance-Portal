@@ -1,5 +1,84 @@
 # JMU Certification & Issuance Portal (demo)
 
+## Panduan Demo (Bahasa Indonesia)
+
+Panduan sederhana untuk mengambil aplikasi ke komputer Windows, lalu menjalankan demonya. Tidak perlu kartu pembayaran atau membeli domain.
+
+> **Penting:** Ini hanya aplikasi demo. Login tidak memakai kata sandi; pengguna memilih peran demo. Jangan masukkan nama, dokumen, atau data sertifikat milik orang sungguhan.
+
+### 1. Ambil aplikasi ke komputer
+
+Pilih salah satu cara berikut. Kalau belum pernah memakai Git, cara **Download ZIP** biasanya paling mudah.
+
+#### Cara A — Download ZIP
+
+1. Buka halaman [repositori aplikasi di GitHub](https://github.com/Adzky/Certification---Issueance-Portal).
+2. Klik tombol **Code**, lalu pilih **Download ZIP**.
+3. Setelah unduhan selesai, buka folder **Downloads** di komputer.
+4. Klik kanan file ZIP aplikasi, pilih **Extract All...**, lalu klik **Extract**.
+5. Buka Visual Studio Code, pilih **File → Open Folder...**, lalu pilih folder hasil ekstrak yang berisi file `package.json`.
+
+#### Cara B — Clone dengan Git
+
+1. Pasang Git untuk Windows dari [git-scm.com](https://git-scm.com/download/win), jika belum ada.
+2. Buka PowerShell pada folder tempat Anda ingin menyimpan aplikasi, lalu jalankan:
+
+   ```powershell
+   git clone https://github.com/Adzky/Certification---Issueance-Portal.git
+   ```
+
+3. Setelah selesai, buka folder hasil clone di Visual Studio Code. Folder itu berisi file `package.json`.
+
+### 2. Yang perlu disiapkan
+
+- Komputer Windows yang tersambung ke internet.
+- Folder aplikasi ini sudah tersedia di komputer.
+- Node.js versi 20 atau lebih baru. Unduh versi LTS dari [nodejs.org](https://nodejs.org/), lalu ikuti petunjuk pemasangannya.
+
+### 3. Jalankan aplikasi
+
+1. Buka folder aplikasi ini menggunakan Visual Studio Code.
+2. Dari menu atas, pilih **Terminal → New Terminal**.
+3. Ketik perintah berikut, lalu tekan **Enter**:
+
+   ```powershell
+   npm install
+   ```
+
+   Tunggu sampai selesai. Langkah ini biasanya hanya diperlukan sekali di komputer tersebut.
+
+4. Jalankan aplikasi:
+
+   ```powershell
+   npm run dev
+   ```
+
+5. Tunggu sampai terminal menampilkan alamat lokal, biasanya `http://localhost:3000`.
+6. Buka alamat itu di browser untuk memastikan portal tampil. **Jangan tutup terminal ini** selama demo berlangsung.
+
+Saat pertama kali dijalankan, aplikasi menyiapkan basis data contoh dan prosesnya bisa memakan waktu. Tunggu sampai server siap.
+
+Kalau portal sudah tampil, demo siap digunakan di browser pada alamat `http://localhost:3000`.
+
+### Saat demo selesai
+
+- Tekan **Ctrl+C** pada terminal aplikasi untuk menghentikan portal.
+- Demo berjalan di komputer sendiri dan hanya dapat dibuka dari komputer itu melalui `http://localhost:3000`.
+
+### Kalau ada kendala
+
+- **Alamat port 3000 sudah dipakai:** jalankan aplikasi dengan `npm run dev -- --port 3001`, lalu buka `http://localhost:3001` di browser.
+- **Data contoh perlu dikembalikan:** jalankan `npm run db:reset` di terminal. Ini menghapus perubahan demo dan mengembalikan data contoh awal.
+
+### Batasan dan keamanan
+
+- Demo hanya berjalan di komputer yang menjalankannya; ini bukan situs yang di-hosting untuk umum.
+- Portal menyediakan peran demo tanpa kata sandi.
+- Data tersimpan di komputer yang menjalankan aplikasi. Ini bukan penyimpanan cadangan.
+- Gunakan hanya data contoh. Jangan unggah dokumen pribadi, informasi rahasia, atau sertifikat sungguhan.
+
+---
+
 A working demo of a certificate issuance workflow: an officer prepares a document, a verifier checks it, an authorised signatory signs it, and the issued certificate gets a public QR verification page. Five roles, a manager dashboard, an audit trail, user onboarding and certificate lifecycle (suspend / reinstate / revoke) — all backed by a real REST API and a SQLite database seeded with sample data.
 
 ![Manager dashboard](docs/screenshot.png)
