@@ -1,16 +1,11 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
-import { resolveDbUrl } from './db-url';
+import { createLibSqlConfig } from './libsql-config';
 
 export type Tx = Prisma.TransactionClient;
 
 function createClient(): PrismaClient {
-  const adapter = new PrismaLibSql({
-    url: resolveDbUrl(process.env.DATABASE_URL),
-    // SQLite busy timeout (ms): wait for the write lock instead of failing immediately. Applied
-    // by @libsql/client to every pooled connection, unlike a one-off PRAGMA on a single connection.
-    timeout: 5000,
-  });
+  const adapter = new PrismaLibSql(createLibSqlConfig());
   return new PrismaClient({ adapter });
 }
 
