@@ -102,7 +102,7 @@ Error responses always look like `{ "error": { "code", "message" } }` (`FORBIDDE
 
 ```bash
 npm test                              # unit + service + API tests (vitest)
-npx playwright install chromium       # once, to download the browser for e2e
+npm run e2e:install                   # once, to download the browser for e2e
 npm run test:e2e                      # full browser suite; npm run test:e2e -- journey runs the main journey only
 npm run lint
 npm run build                         # production build
@@ -136,7 +136,7 @@ Uploaded registration documents are written to local disk (`storage/`, override 
 
 ### Public base URL
 
-Certificate QR codes and verification links use the **request origin** by default (`http://localhost:3000` in the demo). Set `PUBLIC_BASE_URL` (for example `https://certs.example.com`) so they always point at your public address; it is used by the PDF route and the certificate panel. It is read at build time for the UI, so set it before `npm run build`.
+Certificate QR codes and verification links use the **request origin** by default (`http://localhost:3000` in the demo). Set `PUBLIC_BASE_URL` (for example `https://certs.example.com`) so they always point at your public address; it is used by the certificate PDF route and the `verificationUrl` the API returns (shown in the certificate panel). Set it in the **server environment**; it is read at request time, so no rebuild is needed, only a restart to pick up a changed value.
 
 ### Replacing the backend (Python, Go, …)
 

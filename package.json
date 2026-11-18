@@ -14,6 +14,7 @@
     "postinstall": "node node_modules/prisma/build/index.js generate",
     "test": "node node_modules/vitest/vitest.mjs run",
     "test:e2e": "node node_modules/@playwright/test/cli.js test",
+    "e2e:install": "node node_modules/@playwright/test/cli.js install chromium",
     "db:reset": "node scripts/reset-db.mjs"
   },
   "dependencies": {

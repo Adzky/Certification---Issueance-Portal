@@ -21,6 +21,7 @@ test('full journey: request to issued, verified certificate', async ({ page, bro
   const manager = await newPageAs(browser, 'ISSUANCE_MANAGER');
   const issuedBefore = Number((await manager.getByTestId('stat-issued').innerText()).replace(/[^0-9]/g, ''));
 
+  const objectScope = `Cikarang plant quality system ${Date.now()}`;
   let draftNo = '';
   let docId = '';
   let requestNo = '';
@@ -34,16 +35,19 @@ test('full journey: request to issued, verified certificate', async ({ page, bro
     await page.getByRole('option', { name: 'PT Surya Kencana Industri' }).click();
     await dialog.getByRole('combobox', { name: 'Service scope' }).click();
     await page.getByRole('option', { name: 'Certification – ISO 9001' }).click();
-    await dialog.getByLabel('Object / scope').fill('Quality management system of the Cikarang plant');
+    await dialog.getByLabel('Object / scope').fill(objectScope);
     await dialog.getByRole('combobox', { name: 'Priority' }).click();
     await page.getByRole('option', { name: 'High' }).click();
     await dialog.getByRole('button', { name: 'Create Request' }).click();
 
-    const firstRow = page.getByRole('table', { name: 'Issuance requests' }).locator('tbody tr').first();
-    await expect(firstRow).toContainText('PT Surya Kencana Industri');
-    await expect(firstRow).toContainText('Submitted');
-    requestNo = (await firstRow.innerText()).match(/REQ-[\w-]+/)![0];
-    await firstRow.click();
+    // Find our request by its unique object text (search covers it), not by list position.
+    await page.getByRole('searchbox', { name: 'Search' }).fill(objectScope);
+    const row = page.getByRole('table', { name: 'Issuance requests' }).locator('tbody tr');
+    await expect(row).toHaveCount(1);
+    await expect(row).toContainText('PT Surya Kencana Industri');
+    await expect(row).toContainText('Submitted');
+    requestNo = (await row.innerText()).match(/REQ-[\w-]+/)![0];
+    await row.click();
   });
 
   await test.step('Officer prepares the document and sends it to verification', async () => {

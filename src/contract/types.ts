@@ -155,6 +155,8 @@ export interface CertificateDetail {
   displayStatus: CertificateDisplayStatus;
   statusReason: string | null;
   verificationToken: string;
+  /** Public verification link: absolute when PUBLIC_BASE_URL is set on the server, otherwise the root-relative path `/verify/<number>`. */
+  verificationUrl: string;
   createdAt: string;
 }
 

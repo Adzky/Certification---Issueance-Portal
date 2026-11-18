@@ -47,6 +47,22 @@ describe('certificates', () => {
     expect(certificate.verificationToken).toMatch(/^[0-9a-f]{32}$/);
   });
 
+  it('certificate detail verificationUrl honours PUBLIC_BASE_URL at runtime and falls back to a relative path', async () => {
+    const { certificate } = await issueOne(f, 'QMS');
+    const prev = process.env.PUBLIC_BASE_URL;
+    try {
+      delete process.env.PUBLIC_BASE_URL;
+      expect((await getCertificate(f.manager, certificate.id)).verificationUrl).toBe(`/verify/${certificate.number}`);
+      process.env.PUBLIC_BASE_URL = 'https://certs.example.com/';
+      expect((await getCertificate(f.manager, certificate.id)).verificationUrl).toBe(`https://certs.example.com/verify/${certificate.number}`);
+      process.env.PUBLIC_BASE_URL = '';
+      expect((await getCertificate(f.manager, certificate.id)).verificationUrl).toBe(`/verify/${certificate.number}`);
+    } finally {
+      if (prev === undefined) delete process.env.PUBLIC_BASE_URL;
+      else process.env.PUBLIC_BASE_URL = prev;
+    }
+  });
+
   it('inspection report gets JMU-INS number and 12-month validity', async () => {
     const { certificate } = await issueOne(f, 'INS');
     expect(certificate.number).toMatch(/^JMU-INS-\d{4}-0001$/);

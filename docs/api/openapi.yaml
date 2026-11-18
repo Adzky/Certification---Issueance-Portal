@@ -1024,7 +1024,7 @@ components:
         displayStatus: { $ref: '#/components/schemas/CertificateDisplayStatus' }
     CertificateDetail:
       type: object
-      required: [id, number, type, requestId, requestNumber, documentId, documentNumber, clientName, clientAddress, scopeCode, scopeName, schemeLabel, objectScope, issueDate, validUntil, status, displayStatus, statusReason, verificationToken, createdAt]
+      required: [id, number, type, requestId, requestNumber, documentId, documentNumber, clientName, clientAddress, scopeCode, scopeName, schemeLabel, objectScope, issueDate, validUntil, status, displayStatus, statusReason, verificationToken, verificationUrl, createdAt]
       properties:
         id: { type: string }
         number: { type: string }
@@ -1045,6 +1045,7 @@ components:
         displayStatus: { $ref: '#/components/schemas/CertificateDisplayStatus' }
         statusReason: { type: [string, 'null'] }
         verificationToken: { type: string }
+        verificationUrl: { type: string, description: 'Public verification link. Absolute when the server has PUBLIC_BASE_URL set (read at request time), otherwise the root-relative path /verify/{number}.' }
         createdAt: { $ref: '#/components/schemas/DateTime' }
     CertificatePage:
       allOf:

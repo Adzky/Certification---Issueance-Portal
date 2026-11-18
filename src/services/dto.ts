@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { displayCertificateStatus } from '@/domain/validity';
+import { publicBaseUrl, verificationUrl } from '@/domain/verification';
 import type {
   CertificateStatus,
   DocumentStatus,
@@ -161,6 +162,8 @@ export function toCertificateDetail(c: CertificateRow, now: Date = new Date()): 
     displayStatus: displayCertificateStatus({ status, validUntil: c.validUntil }, now),
     statusReason: c.statusReason,
     verificationToken: c.verificationToken,
+    // Read at request time (not build time); empty base gives the root-relative path.
+    verificationUrl: verificationUrl(c.number, publicBaseUrl(process.env.PUBLIC_BASE_URL, '')),
     createdAt: iso(c.createdAt),
   };
 }
