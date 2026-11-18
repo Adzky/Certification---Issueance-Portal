@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useAudit, useCertificate, useDocument, useRequest } from '@/api-client/hooks';
 import { api } from '@/api-client/client';
 import type { CertificateDetail } from '@/contract/types';
-import { verificationUrl } from '@/domain/verification';
+import { publicBaseUrl, verificationUrl } from '@/domain/verification';
 import { DetailList, DetailPanel } from '@/components/common/DetailPanel';
 import { EmptyState } from '@/components/common/EmptyState';
 import { StatusPill } from '@/components/common/StatusPill';
@@ -71,7 +71,7 @@ function CertificatePanelBody({ cert }: { cert: CertificateDetail }) {
   const { data: audit } = useAudit({ entityType: 'CERTIFICATE', entityId: cert.id, pageSize: 50 });
 
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
-  const url = verificationUrl(cert.number, origin);
+  const url = verificationUrl(cert.number, publicBaseUrl(process.env.PUBLIC_BASE_URL, origin));
   const landscape = cert.type === 'CERTIFICATE';
   const fields = {
     ...(doc?.fields ?? {}),

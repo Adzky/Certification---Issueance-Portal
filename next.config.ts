@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // Keep the dev badge clear of the sidebar's "Switch Role" button.
   devIndicators: { position: "bottom-right" },
+  // Optional public base URL for certificate QR / verification links (empty = use the request origin).
+  env: { PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL ?? "" },
   turbopack: {
     rules: {
       "*.css": {

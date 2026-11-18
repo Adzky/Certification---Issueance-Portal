@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '@/repositories/prisma';
 import type { ErrorCode } from '@/domain/errors';
-import { verificationUrl } from '@/domain/verification';
+import { publicBaseUrl, verificationUrl } from '@/domain/verification';
 import { signDocument } from '@/services/documents';
 import {
   getCertificate,
@@ -148,6 +148,10 @@ describe('certificates', () => {
 
   it('verificationUrl and getReference', async () => {
     expect(verificationUrl('JMU-QMS-2026-0001', 'http://x.test')).toBe('http://x.test/verify/JMU-QMS-2026-0001');
+    // A configured public base URL wins over the request origin (trailing slashes trimmed).
+    expect(publicBaseUrl('https://certs.example.com/', 'http://localhost:3000')).toBe('https://certs.example.com');
+    expect(publicBaseUrl('', 'http://localhost:3000')).toBe('http://localhost:3000');
+    expect(publicBaseUrl(undefined, 'http://localhost:3000')).toBe('http://localhost:3000');
     const ref = await getReference();
     expect(ref.clients.map((c) => c.name)).toEqual(['PT Surya Kencana Industri']);
     expect(ref.scopes.map((s) => s.code)).toEqual(['CDKAB', 'CE', 'INS', 'ISMS', 'QMS']);

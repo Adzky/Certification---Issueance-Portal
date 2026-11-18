@@ -1,6 +1,6 @@
 import QRCode from 'qrcode';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { verificationUrl } from '@/domain/verification';
+import { publicBaseUrl, verificationUrl } from '@/domain/verification';
 import { withActor } from '@/server/handler';
 import { getCertificate } from '@/services/certificates';
 import { getDocument } from '@/services/documents';
@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 export const GET = withActor<{ id: string }>(async (actor, req, { params }) => {
   const cert = await getCertificate(actor, params.id);
   const doc = await getDocument(actor, cert.documentId);
-  const url = verificationUrl(cert.number, new URL(req.url).origin);
+  const url = verificationUrl(cert.number, publicBaseUrl(process.env.PUBLIC_BASE_URL, new URL(req.url).origin));
   const qrDataUrl = await QRCode.toDataURL(url, { margin: 0, width: 280, errorCorrectionLevel: 'M' });
   const buffer = await renderToBuffer(
     CertificatePdf({
