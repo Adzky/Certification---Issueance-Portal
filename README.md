@@ -194,6 +194,49 @@ npm run build                         # production build
 
 This is a demo; these are the pieces to replace.
 
+### Deploying the persistent demo to Vercel
+
+The app uses Next.js route handlers and needs a server, so deploy it as a Next.js project
+(not as a static export). Vercel detects the framework and uses the existing `npm run build`
+script; no `vercel.json` is required.
+
+The app's local SQLite file and `storage/` directory are not durable on Vercel. For a shared
+demo database and persistent registration documents, configure Turso (libSQL) and Cloudflare
+R2:
+
+1. Push this repository to a Git provider and import it as a new project in Vercel. Keep the
+   repository root as the project root and the framework preset as **Next.js**.
+2. Create a Turso database and an authentication token. Set `DATABASE_URL` to its
+   `libsql://...` URL and `TURSO_AUTH_TOKEN` to the token.
+3. Create a Cloudflare R2 bucket and an R2 API token scoped to **Object Read & Write** for
+   that bucket. Set `S3_ENDPOINT` to `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`,
+   `S3_BUCKET` to the bucket name, `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` to the
+   token credentials, `S3_REGION` to `auto`, and `STORAGE_DRIVER` to `s3`.
+4. Set `SESSION_SECRET` to a random secret of at least 32 characters and `PUBLIC_BASE_URL`
+   to the deployed site origin (for example `https://your-project.vercel.app`). Add all
+   variables in Vercel's project settings for the environment you will use, then deploy.
+5. From a local PowerShell terminal, set those same database and storage variables for the
+   current terminal session, then run `npm run db:migrate:turso` once to create the remote
+   schema and `npm run db:seed:demo` once to add demo users and sample records. Both commands
+   are explicit and are not run during Vercel builds. The seed includes registration
+   documents, so configure the R2 variables before running it.
+
+Turso migration files are the existing SQLite migrations, applied through libSQL and tracked
+in `_portal_migrations`; do not run `prisma migrate deploy` against Turso. Keep the R2 token
+and Turso token private, and do not commit them. The demo login still lets anyone choose a
+role, so do not upload real personal information or certificates.
+
+The free plans have usage limits and can change. Turso advertises a free plan without a credit
+card; Cloudflare requires activating an R2 subscription, which may ask for a payment method.
+Check the current [Turso pricing](https://turso.tech/pricing) and
+[Cloudflare R2 pricing](https://developers.cloudflare.com/r2/pricing/) before deployment;
+there is no guarantee every provider will remain free at every usage level.
+
+For registration uploads, the app currently accepts up to 10 MB per document and bounds a
+whole registration request at about 71 MB. Vercel or another serverless platform may enforce
+a lower request-size limit before the route handler runs; use small sample PDFs for the demo.
+Large-file uploads would need a separate direct-to-R2 upload flow.
+
 ### Database: SQLite → PostgreSQL
 
 The schema is Postgres-compatible by design (enums are strings validated by Zod/domain types, JSON is stored as text).
@@ -211,7 +254,7 @@ Demo login is *pick a user*, no password. Replace `src/server/session.ts` (sessi
 
 ### File storage
 
-Uploaded registration documents are written to local disk (`storage/`, override with `STORAGE_DIR`) via `src/services/storage.ts`. Replace that one module with S3 / Azure Blob / etc.
+Uploaded registration documents are written to local disk (`storage/`, override with `STORAGE_DIR`) by default via `src/services/storage.ts`. For a persistent Vercel demo, set `STORAGE_DRIVER=s3` and the `S3_*` variables above to use an S3-compatible service such as Cloudflare R2.
 
 ### Public base URL
 
